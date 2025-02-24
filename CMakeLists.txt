@@ -41,13 +41,11 @@ target_link_libraries(CamFilter PRIVATE
     ${OpenCV_LIBRARIES}
 )
 
-# Установите свойства для macOS и Windows
 set_target_properties(CamFilter PROPERTIES
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
 )
 
-# Установите параметры для macOS (идентификатор пакета и версия)
 if(APPLE)
     set_target_properties(CamFilter PROPERTIES
         MACOSX_BUNDLE_GUI_IDENTIFIER com.example.CamFilter
@@ -56,15 +54,6 @@ if(APPLE)
     )
 endif()
 
-# Установите параметры для установки
-include(GNUInstallDirs)
-install(TARGETS CamFilter
-    BUNDLE DESTINATION .
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
-
-# Завершите настройку для Qt6
 if(QT_VERSION_MAJOR EQUAL 6)
     qt_finalize_executable(CamFilter)
 endif()
