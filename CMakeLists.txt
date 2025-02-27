@@ -20,17 +20,14 @@ set(PROJECT_SOURCES
     mainWindow.ui
 )
 
-
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(CamFilter
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
-        .gitignore
     )
 else()
     add_executable(CamFilter
         ${PROJECT_SOURCES}
-        .gitignore
     )
 endif()
 

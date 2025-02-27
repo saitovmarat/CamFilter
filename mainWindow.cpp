@@ -76,6 +76,7 @@ void MainWindow::onFrameChanged(const QVideoFrame& frame)
         return;
     }
 
+
     {
         std::lock_guard<std::mutex> lock(queueMutex);
         frameQueue.push(frame);
