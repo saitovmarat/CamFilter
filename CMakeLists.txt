@@ -14,11 +14,13 @@ find_package(OpenCV REQUIRED)
 qt_standard_project_setup()
 
 set(PROJECT_SOURCES
+    src/mainWindow.cpp
+    src/mainWindow.h
+    src/mainWindow.ui
     main.cpp
-    mainWindow.cpp
-    mainWindow.h
-    mainWindow.ui
 )
+
+include_directories(src)
 
 qt_add_resources(RESOURCES resources/resources.qrc)
 
