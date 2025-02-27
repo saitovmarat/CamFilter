@@ -20,14 +20,18 @@ set(PROJECT_SOURCES
     mainWindow.ui
 )
 
+qt_add_resources(RESOURCES resources/resources.qrc)
+
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(CamFilter
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
+        ${RESOURCES}
     )
 else()
     add_executable(CamFilter
         ${PROJECT_SOURCES}
+        ${RESOURCES}
     )
 endif()
 

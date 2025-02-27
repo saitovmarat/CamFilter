@@ -10,9 +10,10 @@ MainWindow::MainWindow(QWidget *parent)
     , stopProcessing(false)
 {
     ui->setupUi(this);
+    setWindowTitle("Camera Filter");
+    setWindowIcon(QIcon(":/camera_icon.png"));
 
     getCameras();
-
     connect(ui->camerasComboBox, &QComboBox::currentIndexChanged, this, &MainWindow::selectCam);
 
     connect(ui->BilateralFilterButton, &QPushButton::clicked, this, &MainWindow::applyBilateralFilter);
@@ -25,9 +26,9 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     stopProcessing = true;
-    frameAvailable.notify_all(); // Уведомляем поток
+    frameAvailable.notify_all();
     if (processingThread.joinable()) {
-        processingThread.join(); // Ждем завершения потока
+        processingThread.join();
     }
 
     delete currentCam;
@@ -76,7 +77,6 @@ void MainWindow::onFrameChanged(const QVideoFrame& frame)
         return;
     }
 
-
     {
         std::lock_guard<std::mutex> lock(queueMutex);
         frameQueue.push(frame);
@@ -97,8 +97,10 @@ void MainWindow::processFrames()
                 break;
             }
 
-            frame = frameQueue.front();
-            frameQueue.pop();
+            frame = frameQueue.back();
+            while (!frameQueue.empty()) {
+                frameQueue.pop();
+            }
         }
 
         QVideoFrame filteredFrame = applyFilter(frame);
@@ -127,7 +129,6 @@ QVideoFrame MainWindow::applyFilter(const QVideoFrame &frame)
         frameImg = frameImg.convertToFormat(QImage::Format_RGB888);
     }
 
-    // Создание cv::Mat из QImage
     cv::Mat mat;
     if (frameImg.format() == QImage::Format_RGB888) {
         mat = cv::Mat(frameImg.height(), frameImg.width(), CV_8UC3,
@@ -143,7 +144,6 @@ QVideoFrame MainWindow::applyFilter(const QVideoFrame &frame)
         return frame;
     }
 
-    // Применение фильтра
     cv::Mat processedFrame;
     switch (currentFilter) {
     case Bilateral:
@@ -157,7 +157,6 @@ QVideoFrame MainWindow::applyFilter(const QVideoFrame &frame)
         break;
     }
 
-    // Создание QImage из обработанного cv::Mat
     QImage filteredImg(processedFrame.data,
                        processedFrame.cols,
                        processedFrame.rows,
