@@ -26,11 +26,7 @@
       <item>
        <layout class="QVBoxLayout" name="cameraLayout">
         <item>
-         <layout class="QVBoxLayout" name="verticalLayout">
-          <item>
-           <widget class="QVideoWidget" name="cameraWidget" native="true"/>
-          </item>
-         </layout>
+         <layout class="QVBoxLayout" name="verticalLayout"/>
         </item>
         <item>
          <widget class="QComboBox" name="camerasComboBox"/>
@@ -122,14 +118,6 @@
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>QVideoWidget</class>
-   <extends>QWidget</extends>
-   <header>QVideoWidget</header>
-   <container>1</container>
-  </customwidget>
- </customwidgets>
  <resources/>
  <connections/>
 </ui>

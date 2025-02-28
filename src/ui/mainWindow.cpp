@@ -1,6 +1,22 @@
 #include "mainWindow.h"
 #include "ui_mainWindow.h"
 
+void MainWindow::applyBilateralFilter()
+{
+    currentFilter = Bilateral;
+}
+
+void MainWindow::applyGaussFilter()
+{
+    currentFilter = Gauss;
+}
+
+void MainWindow::applyNoFilter()
+{
+    currentFilter = NoFilter;
+}
+
+#ifdef USE_QT_CAMERA
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -8,10 +24,15 @@ MainWindow::MainWindow(QWidget *parent)
     , mediaCaptureSession(new QMediaCaptureSession())
     , currentFilter(NoFilter)
     , stopProcessing(false)
+    , cameraWidget(new QVideoWidget())
 {
+    qDebug() << "Qt Camera";
+
     ui->setupUi(this);
     setWindowTitle("Camera Filter");
     setWindowIcon(QIcon(":/camera_icon.png"));
+
+    ui->verticalLayout->addWidget(cameraWidget);
 
     getCameras();
     connect(ui->camerasComboBox, &QComboBox::currentIndexChanged, this, &MainWindow::selectCam);
@@ -57,7 +78,7 @@ void MainWindow::selectCam()
         if (camera.description() == ui->camerasComboBox->currentText()) {
             currentCam->setCameraDevice(camera);
             mediaCaptureSession->setCamera(currentCam);
-            mediaCaptureSession->setVideoOutput(ui->cameraWidget);
+            mediaCaptureSession->setVideoOutput(cameraWidget);
             sink = mediaCaptureSession->videoSink();
 
             connect(sink, &QVideoSink::videoFrameChanged, this, &MainWindow::onFrameChanged);
@@ -166,19 +187,77 @@ QVideoFrame MainWindow::applyFilter(const QVideoFrame &frame)
     return QVideoFrame(filteredImg);
 }
 
-void MainWindow::applyBilateralFilter()
+
+
+#else
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+    , ui(new Ui::MainWindow)
+    , camera(0, cv::CAP_DSHOW)
+    , timer(new QTimer(this))
+    , cameraWidget(new QLabel())
 {
-    currentFilter = Bilateral;
+    ui->setupUi(this);
+    setWindowTitle("Camera Filter");
+    setWindowIcon(QIcon(":/camera_icon.png"));
+
+    cameraWidget->setSizePolicy(QSizePolicy::Expanding,
+                                QSizePolicy::Expanding);
+    cameraWidget->setAlignment(Qt::AlignCenter);
+    ui->verticalLayout->addWidget(cameraWidget);
+    ui->camerasComboBox->hide();
+
+    if (!camera.isOpened()) {
+        cameraWidget->setText("Не удалось открыть камеру!");
+        return;
+    }
+
+    connect(ui->BilateralFilterButton, &QPushButton::clicked, this, &MainWindow::applyBilateralFilter);
+    connect(ui->GaussFilterButton, &QPushButton::clicked, this, &MainWindow::applyGaussFilter);
+    connect(ui->NoFilterButton, &QPushButton::clicked, this, &MainWindow::applyNoFilter);
+
+    connect(timer, &QTimer::timeout, this, &MainWindow::updateFrame);
+    timer->start(30);
 }
 
-void MainWindow::applyGaussFilter()
+MainWindow::~MainWindow()
 {
-    currentFilter = Gauss;
-}
-
-void MainWindow::applyNoFilter()
-{
-    currentFilter = NoFilter;
+    camera.release();
+    delete ui;
 }
 
 
+void MainWindow::updateFrame()
+{
+    cv::Mat frame;
+    camera >> frame;
+    if (frame.empty()) return;
+
+    cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
+
+    cv::Mat processedFrame;
+    switch (currentFilter) {
+    case Bilateral:
+        cv::bilateralFilter(frame, processedFrame, 9, 75, 75);
+        break;
+    case Gauss:
+        cv::GaussianBlur(frame, processedFrame, cv::Size(15, 15), 0);
+        break;
+    default:
+        processedFrame = frame.clone();
+        break;
+    }
+
+    QImage image(processedFrame.data,
+                 processedFrame.cols,
+                 processedFrame.rows,
+                 static_cast<int>(processedFrame.step),
+                 QImage::Format_RGB888);
+
+    QSize labelSize = cameraWidget->size(); // Получаем текущий размер QLabel
+    QImage scaledImage = image.scaled(labelSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+
+    cameraWidget->setPixmap(QPixmap::fromImage(image));
+}
+
+#endif

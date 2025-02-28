@@ -14,13 +14,16 @@ find_package(OpenCV REQUIRED)
 qt_standard_project_setup()
 
 set(PROJECT_SOURCES
-    src/mainWindow.cpp
-    src/mainWindow.h
-    src/mainWindow.ui
+    src/ui/mainWindow.cpp
+    src/ui/mainWindow.h
+    src/ui/mainWindow.ui
+    src/core/QtCamera.hpp
+    src/core/openCVCamera.hpp
     main.cpp
 )
 
-include_directories(src)
+include_directories(src/ui)
+include_directories(src/core)
 
 qt_add_resources(RESOURCES resources/resources.qrc)
 
@@ -43,6 +46,11 @@ target_link_libraries(CamFilter PRIVATE
     Qt${QT_VERSION_MAJOR}::MultimediaWidgets
     ${OpenCV_LIBRARIES}
 )
+
+option(USE_QT_CAMERA "Use Qt Camera handling" ON)
+if(USE_QT_CAMERA)
+    target_compile_definitions(CamFilter PRIVATE USE_QT_CAMERA)
+endif()
 
 set_target_properties(CamFilter PROPERTIES
     MACOSX_BUNDLE TRUE

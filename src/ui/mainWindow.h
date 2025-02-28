@@ -12,6 +12,9 @@
 #include <QVideoSink>
 #include <opencv2/opencv.hpp>
 
+#include <QLabel>
+#include <QTimer>
+
 enum FilterType {
     NoFilter,
     Bilateral,
@@ -33,33 +36,41 @@ public:
     ~MainWindow();
 
 private slots:
-    void getCameras();
-    void selectCam();
-    void onFrameChanged(const QVideoFrame& frame);
-
     void applyBilateralFilter();
     void applyGaussFilter();
     void applyNoFilter();
 
+#ifdef USE_QT_CAMERA
+    void getCameras();
+    void selectCam();
+    void onFrameChanged(const QVideoFrame& frame);
+
+#else
+    void updateFrame();
+#endif
 private:
     Ui::MainWindow *ui;
+    FilterType currentFilter;
 
+#ifdef USE_QT_CAMERA
+    QVideoWidget* cameraWidget;
     QCamera* currentCam;
     QVideoSink* sink;
     QMediaCaptureSession* mediaCaptureSession;
 
-    FilterType currentFilter;
-
-    // Многопоточность
-    std::queue<QVideoFrame> frameQueue; // Очередь кадров
-    std::mutex queueMutex;             // Мьютекс для синхронизации
-    std::condition_variable frameAvailable; // Условная переменная
-    std::atomic<bool> stopProcessing;  // Флаг остановки потока
-    std::thread processingThread;      // Поток обработки
-
     void processFrames();
     QVideoFrame applyFilter(const QVideoFrame &frame);
 
+    std::queue<QVideoFrame> frameQueue;
+    std::mutex queueMutex;
+    std::condition_variable frameAvailable;
+    std::atomic<bool> stopProcessing;
+    std::thread processingThread;
+#else
+    cv::VideoCapture camera;
+    QTimer* timer;
+    QLabel* cameraWidget;
+#endif
 
 };
 
