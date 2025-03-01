@@ -21,7 +21,7 @@ qrc_*.cpp
 ui_*.h
 
 # Исключение временных файлов сборки
-build-*/
+build/
 debug/
 release/
 
