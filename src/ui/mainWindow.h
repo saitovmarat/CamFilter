@@ -5,6 +5,7 @@
 #include <QMainWindow>
 #include <QCameraDevice>
 #include <QMediaDevices>
+#include <QSettings>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -31,6 +32,8 @@ private slots:
 private:
     Ui::MainWindow* ui;
     ICameraType* camera;
+
+    void setFilterFromSettings();
     FilterType currentFilter;
 
     QWidget* cameraWidget;

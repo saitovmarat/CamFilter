@@ -13,6 +13,7 @@ MainWindow::MainWindow(ICameraType* cameraType, QWidget *parent)
     setWindowIcon(QIcon(":/camera_icon.png"));
 
     ui->verticalLayout->addWidget(cameraWidget);
+    setFilterFromSettings();
 
     getCameras();
     connect(ui->camerasComboBox, &QComboBox::currentIndexChanged, this, &MainWindow::selectCam);
@@ -58,4 +59,18 @@ void MainWindow::applyNoFilter()
     camera->currentFilter = NoFilter;
 }
 
+void MainWindow::setFilterFromSettings()
+{
+    QSettings settings("../../settings.ini", QSettings::IniFormat);
+    QString defaultFilter = settings.value("Settings/DefaultFilter", "NoFilter").toString();
 
+    if (defaultFilter == "Bilateral") {
+        applyBilateralFilter();
+    }
+    else if (defaultFilter == "Gauss") {
+        applyGaussFilter();
+    }
+    else {
+        applyNoFilter();
+    }
+}
