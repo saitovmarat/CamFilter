@@ -17,8 +17,13 @@ set(PROJECT_SOURCES
     src/ui/mainWindow.cpp
     src/ui/mainWindow.h
     src/ui/mainWindow.ui
-    src/core/QtCamera.hpp
-    src/core/openCVCamera.hpp
+
+    src/core/ICameraType.h
+    src/core/qtCamera.h
+    src/core/qtCamera.cpp
+
+    src/core/openCVCamera.h
+    src/core/openCVCamera.cpp
     main.cpp
 )
 

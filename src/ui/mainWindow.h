@@ -1,25 +1,10 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#pragma once
 
-#include <queue>
-#include <mutex>
+#include "ICameraType.h"
+
 #include <QMainWindow>
 #include <QCameraDevice>
 #include <QMediaDevices>
-#include <QCamera>
-#include <QVideoWidget>
-#include <QMediaCaptureSession>
-#include <QVideoSink>
-#include <opencv2/opencv.hpp>
-
-#include <QLabel>
-#include <QTimer>
-
-enum FilterType {
-    NoFilter,
-    Bilateral,
-    Gauss
-};
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -32,46 +17,21 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    MainWindow(ICameraType* camera, QWidget *parent = nullptr);
     ~MainWindow();
 
-private slots:
+private slots:   
+    void getCameras();
+    void selectCam(int index);
+
     void applyBilateralFilter();
     void applyGaussFilter();
     void applyNoFilter();
 
-#ifdef USE_QT_CAMERA
-    void getCameras();
-    void selectCam();
-    void onFrameChanged(const QVideoFrame& frame);
-
-#else
-    void updateFrame();
-#endif
 private:
-    Ui::MainWindow *ui;
+    Ui::MainWindow* ui;
+    ICameraType* camera;
     FilterType currentFilter;
 
-#ifdef USE_QT_CAMERA
-    QVideoWidget* cameraWidget;
-    QCamera* currentCam;
-    QVideoSink* sink;
-    QMediaCaptureSession* mediaCaptureSession;
-
-    void processFrames();
-    QVideoFrame applyFilter(const QVideoFrame &frame);
-
-    std::queue<QVideoFrame> frameQueue;
-    std::mutex queueMutex;
-    std::condition_variable frameAvailable;
-    std::atomic<bool> stopProcessing;
-    std::thread processingThread;
-#else
-    cv::VideoCapture camera;
-    QTimer* timer;
-    QLabel* cameraWidget;
-#endif
-
+    QWidget* cameraWidget;
 };
-
-#endif // MAINWINDOW_H

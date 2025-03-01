@@ -1,33 +1,15 @@
 #include "mainWindow.h"
 #include "ui_mainWindow.h"
 
-void MainWindow::applyBilateralFilter()
-{
-    currentFilter = Bilateral;
-}
 
-void MainWindow::applyGaussFilter()
-{
-    currentFilter = Gauss;
-}
 
-void MainWindow::applyNoFilter()
-{
-    currentFilter = NoFilter;
-}
-
-#ifdef USE_QT_CAMERA
-MainWindow::MainWindow(QWidget *parent)
+MainWindow::MainWindow(ICameraType* cameraType, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , currentCam(new QCamera())
-    , mediaCaptureSession(new QMediaCaptureSession())
+    , camera(cameraType)
     , currentFilter(NoFilter)
-    , stopProcessing(false)
-    , cameraWidget(new QVideoWidget())
+    , cameraWidget(camera->getWidget())
 {
-    qDebug() << "Qt Camera";
-
     ui->setupUi(this);
     setWindowTitle("Camera Filter");
     setWindowIcon(QIcon(":/camera_icon.png"));
@@ -40,224 +22,42 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->BilateralFilterButton, &QPushButton::clicked, this, &MainWindow::applyBilateralFilter);
     connect(ui->GaussFilterButton, &QPushButton::clicked, this, &MainWindow::applyGaussFilter);
     connect(ui->NoFilterButton, &QPushButton::clicked, this, &MainWindow::applyNoFilter);
-
-    processingThread = std::thread(&MainWindow::processFrames, this);
 }
 
 MainWindow::~MainWindow()
 {
-    stopProcessing = true;
-    frameAvailable.notify_all();
-    if (processingThread.joinable()) {
-        processingThread.join();
-    }
-
-    delete currentCam;
-    delete mediaCaptureSession;
+    delete camera;
+    delete cameraWidget;
     delete ui;
 }
-
 
 void MainWindow::getCameras()
 {
     ui->camerasComboBox->addItem("<None>");
-    QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
+    const QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
     for (const QCameraDevice& camera : cameras) {
         ui->camerasComboBox->addItem(camera.description());
     }
 }
 
-void MainWindow::selectCam()
+void MainWindow::selectCam(int index)
 {
-    if (currentCam->isActive()) {
-        currentCam->stop();
-    }
+    camera->selectCam(index);
+}
 
-    QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
-    for (const QCameraDevice& camera : cameras) {
-        if (camera.description() == ui->camerasComboBox->currentText()) {
-            currentCam->setCameraDevice(camera);
-            mediaCaptureSession->setCamera(currentCam);
-            mediaCaptureSession->setVideoOutput(cameraWidget);
-            sink = mediaCaptureSession->videoSink();
+void MainWindow::applyBilateralFilter()
+{
+    camera->currentFilter = Bilateral;
+}
 
-            connect(sink, &QVideoSink::videoFrameChanged, this, &MainWindow::onFrameChanged);
-            qDebug() << "Selected Cam: " << camera.description();
+void MainWindow::applyGaussFilter()
+{
+    camera->currentFilter = Gauss;
+}
 
-            currentCam->start();
-            break;
-        }
-    }
+void MainWindow::applyNoFilter()
+{
+    camera->currentFilter = NoFilter;
 }
 
 
-void MainWindow::onFrameChanged(const QVideoFrame& frame)
-{
-    if (!frame.isValid()) {
-        qWarning() << "Failed to get a QVideoFrame!";
-        return;
-    }
-
-    {
-        std::lock_guard<std::mutex> lock(queueMutex);
-        frameQueue.push(frame);
-    }
-
-    frameAvailable.notify_one();
-}
-
-void MainWindow::processFrames()
-{
-    while(!stopProcessing) {
-        QVideoFrame frame;
-        {
-            std::unique_lock<std::mutex> lock(queueMutex);
-            frameAvailable.wait(lock, [this] { return !frameQueue.empty() || stopProcessing; });
-
-            if (stopProcessing && frameQueue.empty()) {
-                break;
-            }
-
-            frame = frameQueue.back();
-            while (!frameQueue.empty()) {
-                frameQueue.pop();
-            }
-        }
-
-        QVideoFrame filteredFrame = applyFilter(frame);
-        QMetaObject::invokeMethod(this, [this, filteredFrame]() {
-            sink->setVideoFrame(filteredFrame);
-        });
-    }
-}
-
-// Frame Pixel format: Format_NV12
-// QImage format: QImage::Format_RGBA8888_Premultiplied
-
-QVideoFrame MainWindow::applyFilter(const QVideoFrame &frame)
-{
-    if (currentFilter == NoFilter) return frame;
-
-    QImage frameImg = frame.toImage();
-    if (frameImg.isNull()) {
-        qWarning() << "Failed to convert QVideoFrame to QImage!";
-        return frame;
-    }
-
-    QImage::Format startingFormat = frameImg.format();
-    if (startingFormat == QImage::Format_RGBA8888 ||
-        startingFormat == QImage::Format_RGBA8888_Premultiplied) {
-        frameImg = frameImg.convertToFormat(QImage::Format_RGB888);
-    }
-
-    cv::Mat mat;
-    if (frameImg.format() == QImage::Format_RGB888) {
-        mat = cv::Mat(frameImg.height(), frameImg.width(), CV_8UC3,
-                      const_cast<uchar*>(frameImg.constBits()),
-                      static_cast<size_t>(frameImg.bytesPerLine()));
-    } else {
-        qWarning() << "Unsupported image format for OpenCV processing";
-        return frame;
-    }
-
-    if (mat.empty()) {
-        qWarning() << "cv::Mat is empty!";
-        return frame;
-    }
-
-    cv::Mat processedFrame;
-    switch (currentFilter) {
-    case Bilateral:
-        cv::bilateralFilter(mat, processedFrame, 9, 75, 75);
-        break;
-    case Gauss:
-        cv::GaussianBlur(mat, processedFrame, cv::Size(15, 15), 0);
-        break;
-    default:
-        processedFrame = mat.clone();
-        break;
-    }
-
-    QImage filteredImg(processedFrame.data,
-                       processedFrame.cols,
-                       processedFrame.rows,
-                       static_cast<int>(processedFrame.step),
-                       QImage::Format_RGB888);
-
-    return QVideoFrame(filteredImg);
-}
-
-
-
-#else
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
-    , camera(0, cv::CAP_DSHOW)
-    , timer(new QTimer(this))
-    , cameraWidget(new QLabel())
-{
-    ui->setupUi(this);
-    setWindowTitle("Camera Filter");
-    setWindowIcon(QIcon(":/camera_icon.png"));
-
-    cameraWidget->setSizePolicy(QSizePolicy::Expanding,
-                                QSizePolicy::Expanding);
-    cameraWidget->setAlignment(Qt::AlignCenter);
-    ui->verticalLayout->addWidget(cameraWidget);
-    ui->camerasComboBox->hide();
-
-    if (!camera.isOpened()) {
-        cameraWidget->setText("Не удалось открыть камеру!");
-        return;
-    }
-
-    connect(ui->BilateralFilterButton, &QPushButton::clicked, this, &MainWindow::applyBilateralFilter);
-    connect(ui->GaussFilterButton, &QPushButton::clicked, this, &MainWindow::applyGaussFilter);
-    connect(ui->NoFilterButton, &QPushButton::clicked, this, &MainWindow::applyNoFilter);
-
-    connect(timer, &QTimer::timeout, this, &MainWindow::updateFrame);
-    timer->start(30);
-}
-
-MainWindow::~MainWindow()
-{
-    camera.release();
-    delete ui;
-}
-
-
-void MainWindow::updateFrame()
-{
-    cv::Mat frame;
-    camera >> frame;
-    if (frame.empty()) return;
-
-    cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
-
-    cv::Mat processedFrame;
-    switch (currentFilter) {
-    case Bilateral:
-        cv::bilateralFilter(frame, processedFrame, 9, 75, 75);
-        break;
-    case Gauss:
-        cv::GaussianBlur(frame, processedFrame, cv::Size(15, 15), 0);
-        break;
-    default:
-        processedFrame = frame.clone();
-        break;
-    }
-
-    QImage image(processedFrame.data,
-                 processedFrame.cols,
-                 processedFrame.rows,
-                 static_cast<int>(processedFrame.step),
-                 QImage::Format_RGB888);
-
-    QSize labelSize = cameraWidget->size(); // Получаем текущий размер QLabel
-    QImage scaledImage = image.scaled(labelSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-
-    cameraWidget->setPixmap(QPixmap::fromImage(image));
-}
-
-#endif
