@@ -115,15 +115,15 @@ QVideoFrame QtCamera::applyFilter(const QVideoFrame &frame)
 
     cv::Mat processedFrame;
     switch (currentFilter) {
-    case Bilateral:
-        cv::bilateralFilter(mat, processedFrame, 9, 75, 75);
-        break;
-    case Gauss:
-        cv::GaussianBlur(mat, processedFrame, cv::Size(15, 15), 0);
-        break;
-    default:
-        processedFrame = mat.clone();
-        break;
+        case Bilateral:
+            cv::bilateralFilter(mat, processedFrame, 9, 75, 75);
+            break;
+        case Gauss:
+            cv::GaussianBlur(mat, processedFrame, cv::Size(15, 15), 0);
+            break;
+        default:
+            processedFrame = mat.clone();
+            break;
     }
 
     QImage filteredImg(processedFrame.data,
