@@ -7,6 +7,9 @@
 #include <QVideoSink>
 #include <queue>
 #include <mutex>
+#include <thread>
+#include <condition_variable>
+
 #include <opencv2/opencv.hpp>
 
 #include "ICameraType.h"
