@@ -9,6 +9,13 @@ find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS
     Widgets Multimedia MultimediaWidgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS
     Widgets Multimedia MultimediaWidgets)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(OpenCV_DIR $ENV{OpenCV_DIR_DEBUG})
+else()
+    set(OpenCV_DIR $ENV{OpenCV_DIR_RELEASE})
+endif()
+
 find_package(OpenCV REQUIRED)
 
 qt_standard_project_setup()
@@ -29,6 +36,7 @@ set(PROJECT_SOURCES
 
 include_directories(src/ui)
 include_directories(src/core)
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 qt_add_resources(RESOURCES resources/resources.qrc)
 
@@ -49,7 +57,7 @@ target_link_libraries(CamFilter PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Multimedia
     Qt${QT_VERSION_MAJOR}::MultimediaWidgets
-    ${OpenCV_LIBRARIES}
+    ${OpenCV_LIBS}
 )
 
 option(USE_QT_CAMERA "Use Qt Camera handling" ON)
