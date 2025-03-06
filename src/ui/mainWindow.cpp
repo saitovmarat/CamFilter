@@ -61,7 +61,8 @@ void MainWindow::applyNoFilter()
 
 void MainWindow::setFilterFromSettings()
 {
-    QSettings settings("../../settings.ini", QSettings::IniFormat);
+    QString settingsPath = QCoreApplication::applicationDirPath() + "/settings.ini";
+    QSettings settings(settingsPath, QSettings::IniFormat);
     QString defaultFilter = settings.value("Settings/DefaultFilter", "NoFilter").toString();
 
     if (defaultFilter == "Bilateral") {
