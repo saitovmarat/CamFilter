@@ -1,5 +1,4 @@
 #include "mainWindow.h"
-#include "ICameraType.h"
 #include <QApplication>
 
 #ifdef USE_QT_CAMERA
