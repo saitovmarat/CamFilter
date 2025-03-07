@@ -1,3 +1,10 @@
+#include <QVideoWidget>
+#include <QCamera>
+#include <QVideoSink>
+#include <QMediaCaptureSession>
+#include <QMediaDevices>
+#include <opencv2/opencv.hpp>
+
 #include "qtCamera.h"
 
 QtCamera::QtCamera(QObject* parent)

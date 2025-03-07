@@ -1,5 +1,8 @@
 #include "openCVCamera.h"
 
+#include <QTimer>
+#include <QLabel>
+
 OpenCVCamera::OpenCVCamera(QObject* parent)
     : ICameraType(parent)
     , timer(new QTimer())

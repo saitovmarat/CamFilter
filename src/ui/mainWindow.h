@@ -1,11 +1,7 @@
 #pragma once
 
-#include "ICameraType.h"
-
+#include "iCameraType.h"
 #include <QMainWindow>
-#include <QCameraDevice>
-#include <QMediaDevices>
-#include <QSettings>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -21,8 +17,8 @@ public:
     MainWindow(ICameraType* camera, QWidget *parent = nullptr);
     ~MainWindow();
 
-private slots:   
-    void getCameras();
+private slots:
+    void addCamsToCB();
     void selectCam(int index);
 
     void applyBilateralFilter();

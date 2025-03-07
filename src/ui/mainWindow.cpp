@@ -1,6 +1,10 @@
 #include "mainWindow.h"
 #include "ui_mainWindow.h"
 
+#include <QCameraDevice>
+#include <QMediaDevices>
+#include <QSettings>
+
 MainWindow::MainWindow(ICameraType* cameraType, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -15,7 +19,7 @@ MainWindow::MainWindow(ICameraType* cameraType, QWidget *parent)
     ui->verticalLayout->addWidget(cameraWidget);
     setFilterFromSettings();
 
-    getCameras();
+    addCamsToCB();
     connect(ui->camerasComboBox, &QComboBox::currentIndexChanged, this, &MainWindow::selectCam);
 
     connect(ui->BilateralFilterButton, &QPushButton::clicked, this, &MainWindow::applyBilateralFilter);
@@ -30,7 +34,7 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::getCameras()
+void MainWindow::addCamsToCB()
 {
     ui->camerasComboBox->addItem("<None>");
     const QList<QCameraDevice> cameras = QMediaDevices::videoInputs();

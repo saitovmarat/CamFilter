@@ -1,10 +1,10 @@
 #pragma once
 
 #include <opencv2/opencv.hpp>
-#include <QTimer>
-#include <QLabel>
+#include "iCameraType.h"
 
-#include "ICameraType.h"
+class QTimer;
+class QLabel;
 
 class OpenCVCamera : public ICameraType {
     Q_OBJECT
