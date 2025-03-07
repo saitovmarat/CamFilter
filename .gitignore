@@ -24,7 +24,7 @@ ui_*.h
 build/
 debug/
 release/
-lib/
+lib/*/
 
 # Исключение временных файлов IDE
 *.log
