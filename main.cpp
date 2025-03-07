@@ -1,5 +1,5 @@
-#include "mainWindow.h"
 #include <QApplication>
+#include "mainWindow.h"
 
 #ifdef USE_QT_CAMERA
 #include "qtCamera.h"

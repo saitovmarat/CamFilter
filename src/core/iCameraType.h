@@ -20,5 +20,4 @@ public:
     virtual QWidget* getWidget() const = 0;
 
     FilterType currentFilter;
-
 };
