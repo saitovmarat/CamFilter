@@ -20,14 +20,15 @@ else()
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(Qt_PATH "${CMAKE_SOURCE_DIR}/lib/${PLATFORM}/${ARCHITECTURE}/qt/debug")
-    set(OpenCV_PATH "${CMAKE_SOURCE_DIR}/lib/${PLATFORM}/${ARCHITECTURE}/opencv/debug")
+    set(BUILD_TYPE_FOLDER "debug")
     set(BUILD_TYPE_POSTFIX "d")
 else()
-    set(Qt_PATH "${CMAKE_SOURCE_DIR}/lib/${PLATFORM}/${ARCHITECTURE}/qt/release")
-    set(OpenCV_PATH "${CMAKE_SOURCE_DIR}/lib/${PLATFORM}/${ARCHITECTURE}/opencv/release")
+    set(BUILD_TYPE_FOLDER "release")
     set(BUILD_TYPE_POSTFIX "")
 endif()
+
+set(QT_PATH "${CMAKE_SOURCE_DIR}/lib/${PLATFORM}/${ARCHITECTURE}/qt/${BUILD_TYPE_FOLDER}")
+set(OPENCV_PATH "${CMAKE_SOURCE_DIR}/lib/${PLATFORM}/${ARCHITECTURE}/opencv/${BUILD_TYPE_FOLDER}")
 
 set(OpenCV_LIBS
     opencv_core4120${BUILD_TYPE_POSTFIX}
@@ -36,12 +37,12 @@ set(OpenCV_LIBS
     opencv_videoio4120${BUILD_TYPE_POSTFIX}
 )
 
-if(NOT EXISTS ${Qt_PATH})
-    message(FATAL_ERROR "Required library path does not exist: ${Qt_PATH}")
+if(NOT EXISTS ${QT_PATH})
+    message(FATAL_ERROR "Required library path does not exist: ${QT_PATH}")
 endif()
 
-if(NOT EXISTS ${OpenCV_PATH})
-    message(FATAL_ERROR "OpenCV directory does not exist: ${OpenCV_PATH}")
+if(NOT EXISTS ${OPENCV_PATH})
+    message(FATAL_ERROR "OpenCV directory does not exist: ${OPENCV_PATH}")
 endif()
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS
@@ -57,7 +58,7 @@ set(PROJECT_SOURCES
     src/ui/mainWindow.h
     src/ui/mainWindow.ui
 
-    src/core/ICameraType.h
+    src/core/iCameraType.h
     src/core/qtCamera.h
     src/core/qtCamera.cpp
 
@@ -105,10 +106,10 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
     add_custom_command(TARGET CamFilter POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory ${DEPLOY_DIR}
         COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:CamFilter> ${DEPLOY_DIR}
-        COMMAND ${CMAKE_COMMAND} -E copy_directory ${Qt_PATH} ${DEPLOY_DIR}/Qt
-        COMMAND ${CMAKE_COMMAND} -E copy_directory ${OpenCV_PATH} ${DEPLOY_DIR}/OpenCV
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${QT_PATH} ${DEPLOY_DIR}/Qt
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${OPENCV_PATH} ${DEPLOY_DIR}/OpenCV
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/resources ${DEPLOY_DIR}/resources
-        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/settings.ini ${DEPLOY_DIR}/settings.ini
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/settings.ini ${DEPLOY_DIR}
         COMMENT "Deploying application to ${DEPLOY_DIR}"
     )
 endif()
