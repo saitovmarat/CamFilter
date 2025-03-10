@@ -6,6 +6,7 @@
 #include <condition_variable>
 #include <atomic>
 #include <thread>
+#include <opencv2/opencv.hpp>
 #include "iCameraType.h"
 
 class QVideoWidget;
@@ -21,18 +22,18 @@ public:
     ~QtCamera() override;
 
     void selectCam(int index) override;
-    QWidget* getWidget() const override;
+    void start() override;
 
 private:
     void onFrameChanged(const QVideoFrame& frame);
     void processFrames();
-    QVideoFrame applyFilter(const QVideoFrame &frame);
+    cv::Mat getFilteredFrame(const QVideoFrame &frame);
+    void saveFrame(const cv::Mat& frame);
 
     QVideoWidget* widget;
-    QCamera* currentCam;
+    QCamera* camera;
     QVideoSink* sink;
     QMediaCaptureSession* mediaCaptureSession;
-
     std::queue<QVideoFrame> frameQueue;
     std::mutex queueMutex;
     std::condition_variable frameAvailable;

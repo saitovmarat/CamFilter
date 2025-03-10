@@ -3,23 +3,19 @@
 #include <opencv2/opencv.hpp>
 #include "iCameraType.h"
 
-class QTimer;
-class QLabel;
-
 class OpenCVCamera : public ICameraType {
     Q_OBJECT
 
 public:
-  explicit OpenCVCamera(QObject* parent = nullptr);
-  ~OpenCVCamera() override;
+    explicit OpenCVCamera(QObject* parent = nullptr);
+    ~OpenCVCamera() override;
 
-  void selectCam(int index) override;
-  QWidget* getWidget() const override;
+    void selectCam(int index) override;
+    void start() override;
 
 private:
-  cv::VideoCapture camera;
-  QTimer* timer;
-  QLabel* widget;
+    cv::VideoCapture camera;
 
-  void updateFrame();
+    cv::Mat getFilteredFrame(const cv::Mat& frame);
+    void saveFrame(const cv::Mat& frame);
 };

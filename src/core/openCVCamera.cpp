@@ -1,25 +1,45 @@
 #include "openCVCamera.h"
-
-#include <QTimer>
-#include <QLabel>
+#include <QFile>
+#include <QTextStream>
+#include <QDebug>
+#include <QFileInfo>
 
 OpenCVCamera::OpenCVCamera(QObject* parent)
     : ICameraType(parent)
-    , timer(new QTimer())
-    , widget(new QLabel())
 {
-    widget->setSizePolicy(QSizePolicy::Expanding,
-                                QSizePolicy::Expanding);
-    widget->setAlignment(Qt::AlignCenter);
-    connect(timer, &QTimer::timeout, this, &OpenCVCamera::updateFrame);
-    timer->start(30);
+    qDebug() << "OpenCV Camera";
+    currentFilter = NoFilter;
+
+    QFile file("../../filter");
+    QFileInfo fileInfo(file.fileName());
+
+    qDebug() << "Проверка пути к файлу: " << fileInfo.absoluteFilePath();
+
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qDebug() << "Не удалось открыть файл filter.txt";
+    }
+
+    QTextStream in(&file);
+    QString filter;
+    in >> filter;
+    filter = filter.toLower();
+
+
+    if (filter == "bilateral") {
+        currentFilter = Bilateral;
+    }
+    else if (filter == "gauss") {
+        currentFilter = Gauss;
+    }
+
+    qDebug() << "Current Filter = " << filter;
+
+    file.close();
 }
 
 OpenCVCamera::~OpenCVCamera() 
 {
     camera.release();
-    delete timer;
-    delete widget;
 }
 
 void OpenCVCamera::selectCam(int index)
@@ -31,17 +51,28 @@ void OpenCVCamera::selectCam(int index)
     if(index == 0) return;
 
     camera.open(index-1, cv::CAP_DSHOW);
-
 }
 
-void OpenCVCamera::updateFrame()
+void OpenCVCamera::start()
 {
+    selectCam(1);
+    if (!camera.isOpened()) {
+        qDebug() << "Ошибка: Не удалось открыть камеру!";
+        exit(1);
+    }
     cv::Mat frame;
-    camera >> frame;
-    if (frame.empty()) return;
+    while (true) {
+        camera >> frame;
+        if (frame.empty()) break;
 
-    cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
+        cv::Mat processedFrame = getFilteredFrame(frame);
+        saveFrame(processedFrame);
+        cv::imshow("Camera", frame);
+    }
+}
 
+cv::Mat OpenCVCamera::getFilteredFrame(const cv::Mat& frame)
+{
     cv::Mat processedFrame;
     switch (currentFilter) {
     case Bilateral:
@@ -55,21 +86,13 @@ void OpenCVCamera::updateFrame()
         break;
     }
 
-    QImage image(processedFrame.data,
-                 processedFrame.cols,
-                 processedFrame.rows,
-                 static_cast<int>(processedFrame.step),
-                 QImage::Format_RGB888);
-
-    // QSize labelSize = cameraWidget->size(); 
-    // QImage scaledImage = image.scaled(labelSize, 
-    //                                   Qt::KeepAspectRatio, 
-    //                                   Qt::SmoothTransformation);
-
-    widget->setPixmap(QPixmap::fromImage(image));
+    return processedFrame;
 }
 
-QWidget* OpenCVCamera::getWidget() const {
-    return widget;
+void OpenCVCamera::saveFrame(const cv::Mat& frame)
+{
+    static int frameCounter = 1;
+    std::string folderPath = "../../frames/";
+    std::string fileName = folderPath + "frame_" + std::to_string(frameCounter++) + ".jpg";
+    cv::imwrite(fileName, frame);
 }
-

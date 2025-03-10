@@ -1,5 +1,4 @@
 #pragma once
-
 #include <QObject>
 
 enum FilterType {
@@ -11,13 +10,11 @@ enum FilterType {
 class ICameraType : public QObject {
     Q_OBJECT
 public:
-    explicit ICameraType(QObject* parent = nullptr)
-        : QObject(parent)
-        , currentFilter(NoFilter) {}
+    explicit ICameraType(QObject* parent = nullptr) {}
 
     virtual ~ICameraType() = default;
     virtual void selectCam(int index) = 0;
-    virtual QWidget* getWidget() const = 0;
+    virtual void start() = 0;
 
     FilterType currentFilter;
 };

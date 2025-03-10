@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.16)
 
 project(CamFilter VERSION 0.1 LANGUAGES CXX)
 
+# add_definitions(-DUSE_QT_CAMERA)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -19,6 +21,7 @@ else()
     message(FATAL_ERROR "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
+
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(BUILD_TYPE_FOLDER "debug")
     set(BUILD_TYPE_POSTFIX "d")
@@ -35,6 +38,7 @@ set(OpenCV_LIBS
     opencv_imgproc4120${BUILD_TYPE_POSTFIX}
     opencv_highgui4120${BUILD_TYPE_POSTFIX}
     opencv_videoio4120${BUILD_TYPE_POSTFIX}
+    opencv_imgcodecs4120${BUILD_TYPE_POSTFIX}
 )
 
 if(NOT EXISTS ${QT_PATH})
@@ -46,24 +50,24 @@ if(NOT EXISTS ${OPENCV_PATH})
 endif()
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS
-    Widgets Multimedia MultimediaWidgets)
+    Widgets Multimedia MultimediaWidgets Core)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS
-    Widgets Multimedia MultimediaWidgets)
+    Widgets Multimedia MultimediaWidgets Core)
 find_package(OpenCV REQUIRED)
 
 qt_standard_project_setup()
 
 set(PROJECT_SOURCES
-    src/ui/mainWindow.cpp
-    src/ui/mainWindow.h
-    src/ui/mainWindow.ui
+    # src/ui/mainWindow.cpp
+    # src/ui/mainWindow.h
+    # src/ui/mainWindow.ui
 
     src/core/iCameraType.h
     src/core/qtCamera.h
     src/core/qtCamera.cpp
-
     src/core/openCVCamera.h
     src/core/openCVCamera.cpp
+
     main.cpp
 )
 
@@ -86,6 +90,7 @@ else()
 endif()
 
 target_link_libraries(CamFilter PRIVATE
+    Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Multimedia
     Qt${QT_VERSION_MAJOR}::MultimediaWidgets
