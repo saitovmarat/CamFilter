@@ -37,5 +37,7 @@ lib/*/
 # Исключение файлов CMake
 CMakeFiles/
 CMakeCache.txt
+CMakeSettings.json
 cmake_install.cmake
 Makefile
+frames/
