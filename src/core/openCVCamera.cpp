@@ -10,19 +10,7 @@ OpenCVCamera::OpenCVCamera(QObject* parent)
     : ICameraType(parent)
 {
     qDebug() << "OpenCV Camera";
-
-    QString settingsPath = "../../settings.ini";
-    QSettings settings(settingsPath, QSettings::IniFormat);
-    QString defaultFilter = settings.value("Settings/DefaultFilter", "NoFilter").toString().toLower();
-
-    if (defaultFilter == "bilateral") {
-        currentFilter = Bilateral;
-    }
-    else if (defaultFilter == "gauss") {
-        currentFilter = Gauss;
-    }
-
-    qDebug() << "Current Filter = " << defaultFilter;
+    currentFilter = getFilterFromSettings();
 }
 
 OpenCVCamera::~OpenCVCamera() 

@@ -18,9 +18,7 @@ QtCamera::QtCamera(QObject* parent)
     , widget(new QVideoWidget())
 {
     qDebug() << "Qt Camera";
-
     currentFilter = getFilterFromSettings();
-
     processingThread = std::thread(&QtCamera::processFrames, this);
 }
 
