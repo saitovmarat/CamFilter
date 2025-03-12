@@ -4,7 +4,9 @@
 #include <QMediaCaptureSession>
 #include <QMediaDevices>
 #include <opencv2/opencv.hpp>
+#include <QCoreApplication>
 #include <QDir>
+#include <QSettings>
 
 #include "qtCamera.h"
 
@@ -16,32 +18,8 @@ QtCamera::QtCamera(QObject* parent)
     , widget(new QVideoWidget())
 {
     qDebug() << "Qt Camera";
-    currentFilter = NoFilter;
 
-    QFile file("../../filter");
-    QFileInfo fileInfo(file.fileName());
-
-    qDebug() << "Проверка пути к файлу: " << fileInfo.absoluteFilePath();
-
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qDebug() << "Не удалось открыть файл filter.txt";
-    }
-
-    QTextStream in(&file);
-    QString filter;
-    in >> filter;
-    filter = filter.toLower();
-
-    if (filter == "bilateral") {
-        currentFilter = Bilateral;
-    }
-    else if (filter == "gauss") {
-        currentFilter = Gauss;
-    }
-
-    qDebug() << "Current Filter = " << filter;
-
-    file.close();
+    currentFilter = getFilterFromSettings();
 
     processingThread = std::thread(&QtCamera::processFrames, this);
 }
@@ -170,5 +148,3 @@ void QtCamera::saveFrame(const cv::Mat& frame)
     std::string fileName = folderPath + "frame_" + std::to_string(frameCounter++) + ".jpg";
     cv::imwrite(fileName, frame);
 }
-
-

@@ -3,38 +3,26 @@
 #include <QTextStream>
 #include <QDebug>
 #include <QFileInfo>
+#include <QSettings>
+#include <QCoreApplication>
 
 OpenCVCamera::OpenCVCamera(QObject* parent)
     : ICameraType(parent)
 {
     qDebug() << "OpenCV Camera";
-    currentFilter = NoFilter;
 
-    QFile file("../../filter");
-    QFileInfo fileInfo(file.fileName());
+    QString settingsPath = "../../settings.ini";
+    QSettings settings(settingsPath, QSettings::IniFormat);
+    QString defaultFilter = settings.value("Settings/DefaultFilter", "NoFilter").toString().toLower();
 
-    qDebug() << "Проверка пути к файлу: " << fileInfo.absoluteFilePath();
-
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        qDebug() << "Не удалось открыть файл filter.txt";
-    }
-
-    QTextStream in(&file);
-    QString filter;
-    in >> filter;
-    filter = filter.toLower();
-
-
-    if (filter == "bilateral") {
+    if (defaultFilter == "bilateral") {
         currentFilter = Bilateral;
     }
-    else if (filter == "gauss") {
+    else if (defaultFilter == "gauss") {
         currentFilter = Gauss;
     }
 
-    qDebug() << "Current Filter = " << filter;
-
-    file.close();
+    qDebug() << "Current Filter = " << defaultFilter;
 }
 
 OpenCVCamera::~OpenCVCamera() 
@@ -67,7 +55,6 @@ void OpenCVCamera::start()
 
         cv::Mat processedFrame = getFilteredFrame(frame);
         saveFrame(processedFrame);
-        cv::imshow("Camera", frame);
     }
 }
 
