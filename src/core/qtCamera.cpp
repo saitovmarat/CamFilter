@@ -17,7 +17,6 @@ QtCamera::QtCamera(QObject* parent)
     , stopProcessing(false)
     , widget(new QVideoWidget())
 {
-    qDebug() << "Qt Camera";
     currentFilter = getFilterFromSettings();
     processingThread = std::thread(&QtCamera::processFrames, this);
 }
@@ -106,13 +105,11 @@ cv::Mat QtCamera::getFilteredFrame(const QVideoFrame &frame)
     }
 
     QImage::Format startingFormat = frameImg.format();
-    if (startingFormat == QImage::Format_RGBA8888 ||
-        startingFormat == QImage::Format_RGBA8888_Premultiplied) {
-        frameImg = frameImg.convertToFormat(QImage::Format_RGB888);
-    }
-
     cv::Mat mat;
-    if (frameImg.format() == QImage::Format_RGB888) {
+    if (startingFormat == QImage::Format_RGBA8888 ||
+        startingFormat == QImage::Format_RGBA8888_Premultiplied)
+    {
+        frameImg = frameImg.convertToFormat(QImage::Format_RGB888);
         mat = cv::Mat(frameImg.height(), frameImg.width(), CV_8UC3,
                       const_cast<uchar*>(frameImg.constBits()),
                       static_cast<size_t>(frameImg.bytesPerLine()));
@@ -125,17 +122,17 @@ cv::Mat QtCamera::getFilteredFrame(const QVideoFrame &frame)
 
     cv::Mat processedFrame;
     switch (currentFilter) {
-    case Bilateral:
-        cv::bilateralFilter(mat, processedFrame, 9, 75, 75);
-        break;
-    case Gauss:
-        cv::GaussianBlur(mat, processedFrame, cv::Size(15, 15), 0);
-        break;
-    default:
-        processedFrame = mat.clone();
-        break;
+        case Bilateral:
+            cv::bilateralFilter(mat, processedFrame, 9, 75, 75);
+            break;
+        case Gauss:
+            cv::GaussianBlur(mat, processedFrame, cv::Size(15, 15), 0);
+            break;
+        default:
+            processedFrame = mat.clone();
+            break;
     }
-
+    cv::cvtColor(processedFrame, processedFrame, cv::COLOR_RGB2BGR);
     return processedFrame;
 }
 

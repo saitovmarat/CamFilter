@@ -31,8 +31,6 @@ public:
         else if (defaultFilter == "gauss") {
             filter = Gauss;
         }
-
-        qDebug() << "Current Filter: " << defaultFilter;
         return filter;
     }
 

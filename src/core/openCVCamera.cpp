@@ -9,7 +9,6 @@
 OpenCVCamera::OpenCVCamera(QObject* parent)
     : ICameraType(parent)
 {
-    qDebug() << "OpenCV Camera";
     currentFilter = getFilterFromSettings();
 }
 
