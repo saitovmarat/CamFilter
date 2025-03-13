@@ -31,10 +31,11 @@ void OpenCVCamera::selectCam(int index)
 void OpenCVCamera::start()
 {
     selectCam(1);
-    if (!camera.isOpened()) {
-        qDebug() << "Ошибка: Не удалось открыть камеру!";
-        exit(1);
-    }
+    processFrames();
+}
+
+void OpenCVCamera::processFrames()
+{
     cv::Mat frame;
     while (true) {
         camera >> frame;
@@ -63,10 +64,4 @@ cv::Mat OpenCVCamera::getFilteredFrame(const cv::Mat& frame)
     return processedFrame;
 }
 
-void OpenCVCamera::saveFrame(const cv::Mat& frame)
-{
-    static int frameCounter = 1;
-    std::string folderPath = "../../frames/";
-    std::string fileName = folderPath + "frame_" + std::to_string(frameCounter++) + ".jpg";
-    cv::imwrite(fileName, frame);
-}
+

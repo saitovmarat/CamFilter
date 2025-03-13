@@ -3,7 +3,6 @@
 #include <QVideoSink>
 #include <QMediaCaptureSession>
 #include <QMediaDevices>
-#include <opencv2/opencv.hpp>
 #include <QCoreApplication>
 #include <QDir>
 #include <QSettings>
@@ -134,12 +133,4 @@ cv::Mat QtCamera::getFilteredFrame(const QVideoFrame &frame)
     }
     cv::cvtColor(processedFrame, processedFrame, cv::COLOR_RGB2BGR);
     return processedFrame;
-}
-
-void QtCamera::saveFrame(const cv::Mat& frame)
-{
-    static int frameCounter = 1;
-    std::string folderPath = "../../frames/";
-    std::string fileName = folderPath + "frame_" + std::to_string(frameCounter++) + ".jpg";
-    cv::imwrite(fileName, frame);
 }

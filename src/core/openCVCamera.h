@@ -14,8 +14,8 @@ public:
     void start() override;
 
 private:
-    cv::VideoCapture camera;
-
+    void processFrames() override;
     cv::Mat getFilteredFrame(const cv::Mat& frame);
-    void saveFrame(const cv::Mat& frame);
+
+    cv::VideoCapture camera;
 };

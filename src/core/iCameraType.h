@@ -1,6 +1,8 @@
 #pragma once
+
 #include <QObject>
 #include <QSettings>
+#include <opencv2/opencv.hpp>
 
 enum FilterType {
     Bilateral,
@@ -16,6 +18,7 @@ public:
     virtual ~ICameraType() = default;
     virtual void selectCam(int index) = 0;
     virtual void start() = 0;
+    virtual void processFrames() = 0;
 
     FilterType currentFilter;
 
@@ -32,6 +35,14 @@ public:
             filter = Gauss;
         }
         return filter;
+    }
+
+    void saveFrame(const cv::Mat& frame)
+    {
+        static int frameCounter = 1;
+        std::string folderPath = "../../frames/";
+        std::string fileName = folderPath + "frame_" + std::to_string(frameCounter++) + ".jpg";
+        cv::imwrite(fileName, frame);
     }
 
 };
