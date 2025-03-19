@@ -4,20 +4,18 @@
 #include <QCameraDevice>
 #include <QMediaDevices>
 #include <QSettings>
+#include <QThread>
+#include <QTimer>
 
 MainWindow::MainWindow(ICameraType* cameraType, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , camera(cameraType)
     , currentFilter(NoFilter)
-    , cameraWidget(camera->getWidget())
 {
     ui->setupUi(this);
     setWindowTitle("Camera Filter");
     setWindowIcon(QIcon(":/camera_icon.png"));
-
-    ui->verticalLayout->addWidget(cameraWidget);
-    setFilterFromSettings();
 
     addCamsToCB();
     connect(ui->camerasComboBox, &QComboBox::currentIndexChanged, this, &MainWindow::selectCam);
@@ -25,12 +23,14 @@ MainWindow::MainWindow(ICameraType* cameraType, QWidget *parent)
     connect(ui->BilateralFilterButton, &QPushButton::clicked, this, &MainWindow::applyBilateralFilter);
     connect(ui->GaussFilterButton, &QPushButton::clicked, this, &MainWindow::applyGaussFilter);
     connect(ui->NoFilterButton, &QPushButton::clicked, this, &MainWindow::applyNoFilter);
+
+    connect(camera, &ICameraType::frameReady, this, &MainWindow::updateFrame);
 }
 
 MainWindow::~MainWindow()
 {
+    camera->stop();
     delete camera;
-    delete cameraWidget;
     delete ui;
 }
 
@@ -50,32 +50,26 @@ void MainWindow::selectCam(int index)
 
 void MainWindow::applyBilateralFilter()
 {
-    camera->currentFilter = Bilateral;
+    camera->setFilter(Bilateral);
 }
 
 void MainWindow::applyGaussFilter()
 {
-    camera->currentFilter = Gauss;
+    camera->setFilter(Gauss);
 }
 
 void MainWindow::applyNoFilter()
 {
-    camera->currentFilter = NoFilter;
+    camera->setFilter(NoFilter);
 }
 
-void MainWindow::setFilterFromSettings()
+void MainWindow::updateFrame()
 {
-    QString settingsPath = QCoreApplication::applicationDirPath() + "/settings.ini";
-    QSettings settings(settingsPath, QSettings::IniFormat);
-    QString defaultFilter = settings.value("Settings/DefaultFilter", "NoFilter").toString();
-
-    if (defaultFilter == "Bilateral") {
-        applyBilateralFilter();
-    }
-    else if (defaultFilter == "Gauss") {
-        applyGaussFilter();
-    }
-    else {
-        applyNoFilter();
+    QImage frame = camera->getCurrentFrame();
+    if (!frame.isNull()) {
+        ui->cameraLabel->setPixmap(QPixmap::fromImage(frame));
+        qDebug() << "Кадр обновлен";
+    } else {
+        qDebug() << "Получен пустой кадр в updateFrame";
     }
 }

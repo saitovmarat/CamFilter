@@ -14,23 +14,25 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    MainWindow(ICameraType* camera, QWidget *parent = nullptr);
+    explicit MainWindow(ICameraType* camera, QWidget *parent = nullptr);
     ~MainWindow();
+
+signals:
+    // void frameReady(const QImage &frame);
 
 private slots:
     void addCamsToCB();
     void selectCam(int index);
-
     void applyBilateralFilter();
     void applyGaussFilter();
     void applyNoFilter();
+    void updateFrame();
 
 private:
     Ui::MainWindow* ui;
     ICameraType* camera;
-
-    void setFilterFromSettings();
     FilterType currentFilter;
 
-    QWidget* cameraWidget;
+    // QThread* processingThread;
+    // void processFrames();
 };

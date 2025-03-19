@@ -8,41 +8,74 @@
 
 OpenCVCamera::OpenCVCamera(QObject* parent)
     : ICameraType(parent)
+    , isRunning(false)
 {
     currentFilter = getFilterFromSettings();
 }
 
-OpenCVCamera::~OpenCVCamera() 
+void OpenCVCamera::stop() {
+    if (isRunning) {
+        isRunning = false;
+        if (processingThread.joinable()) {
+            processingThread.join();
+        }
+    }
+}
+
+OpenCVCamera::~OpenCVCamera()
 {
+    stop();
     camera.release();
 }
 
 void OpenCVCamera::selectCam(int index)
 {
+    stop();
     if (camera.isOpened()) {
         camera.release();
     }
+    if(index == 0){
+        stop();
+        return;
+    }
 
-    if(index == 0) return;
-
-    camera.open(index-1, cv::CAP_DSHOW);
-}
-
-void OpenCVCamera::start()
-{
-    selectCam(1);
-    processFrames();
+    if (camera.open(index-1, cv::CAP_DSHOW)) {
+        isRunning = true;
+        processingThread = std::thread(&OpenCVCamera::processFrames, this);
+    } else {
+        qDebug() << "Не удалось открыть камеру с индексом:" << index;
+    }
 }
 
 void OpenCVCamera::processFrames()
 {
     cv::Mat frame;
-    while (true) {
+    while (isRunning) {
         camera >> frame;
-        if (frame.empty()) break;
-
+        if (frame.empty()) {
+            qDebug() << "Получен пустой кадр";
+            continue;
+        }
         cv::Mat processedFrame = getFilteredFrame(frame);
-        saveFrame(processedFrame);
+        if (processedFrame.empty()) {
+            qDebug() << "Обработанный кадр пустой";
+            continue;
+        }
+        QImage frameImg = MatToQImage(processedFrame);
+        if (frameImg.isNull()) {
+            qDebug() << "Преобразованный кадр пустой";
+            continue;
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(framesMutex);
+            frameImgsVector.push_back(frameImg);
+        }
+
+        if (frameImgsVector.empty()) {
+            qDebug() << "frameImgsVector is empty!";
+        }
+        emit frameReady(frameImgsVector.back());
     }
 }
 
@@ -64,4 +97,16 @@ cv::Mat OpenCVCamera::getFilteredFrame(const cv::Mat& frame)
     return processedFrame;
 }
 
+QImage OpenCVCamera::getCurrentFrame()
+{
+    std::lock_guard<std::mutex> lock(framesMutex);
+    QImage lastFrame = frameImgsVector.back();
+    frameImgsVector.clear();
+    return lastFrame;
+}
 
+void OpenCVCamera::setFilter(FilterType filter)
+{
+    std::lock_guard<std::mutex> lock(framesMutex);
+    currentFilter = filter;
+}

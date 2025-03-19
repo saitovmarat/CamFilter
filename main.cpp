@@ -1,4 +1,5 @@
 #include <QApplication>
+#include "mainWindow.h"
 
 #ifdef USE_QT_CAMERA
 #include "qtCamera.h"
@@ -14,9 +15,7 @@ using CameraType = OpenCVCamera;
 int main(int argc, char* argv[])
 {
     QApplication a(argc, argv);
-
-    CameraType camera;
-    camera.start();
-
+    MainWindow w(new CameraType());
+    w.show();
     return a.exec();
 }

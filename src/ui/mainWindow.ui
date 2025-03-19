@@ -26,7 +26,15 @@
       <item>
        <layout class="QVBoxLayout" name="cameraLayout">
         <item>
-         <layout class="QVBoxLayout" name="verticalLayout"/>
+         <layout class="QVBoxLayout" name="verticalLayout">
+          <item>
+           <widget class="QLabel" name="cameraLabel">
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
+          </item>
+         </layout>
         </item>
         <item>
          <widget class="QComboBox" name="camerasComboBox"/>

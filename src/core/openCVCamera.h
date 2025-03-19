@@ -1,6 +1,7 @@
 #pragma once
 
 #include <opencv2/opencv.hpp>
+#include <thread>
 #include "iCameraType.h"
 
 class OpenCVCamera : public ICameraType {
@@ -11,11 +12,20 @@ public:
     ~OpenCVCamera() override;
 
     void selectCam(int index) override;
-    void start() override;
+    void stop() override;
+    QImage getCurrentFrame() override;
+    void setFilter(FilterType filter) override;
 
 private:
     void processFrames() override;
     cv::Mat getFilteredFrame(const cv::Mat& frame);
 
     cv::VideoCapture camera;
+    bool isRunning;
+    std::mutex framesMutex;
+    std::thread processingThread;
+
+// signals:
+//     void frameReady(const QImage &frame);
+
 };
