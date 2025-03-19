@@ -25,7 +25,7 @@ private:
     std::mutex framesMutex;
     std::thread processingThread;
 
-// signals:
-//     void frameReady(const QImage &frame);
+signals:
+    void frameReady(const QImage &frame);
 
 };

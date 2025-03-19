@@ -17,9 +17,6 @@ public:
     explicit MainWindow(ICameraType* camera, QWidget *parent = nullptr);
     ~MainWindow();
 
-signals:
-    // void frameReady(const QImage &frame);
-
 private slots:
     void addCamsToCB();
     void selectCam(int index);
@@ -32,7 +29,4 @@ private:
     Ui::MainWindow* ui;
     ICameraType* camera;
     FilterType currentFilter;
-
-    // QThread* processingThread;
-    // void processFrames();
 };
