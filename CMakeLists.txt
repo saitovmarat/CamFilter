@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 project(CamFilter VERSION 0.1 LANGUAGES CXX)
 
-add_definitions(-DUSE_QT_CAMERA)
+# add_definitions(-DUSE_QT_CAMERA)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -58,13 +58,13 @@ find_package(OpenCV REQUIRED)
 qt_standard_project_setup()
 
 set(PROJECT_SOURCES
-    # src/ui/mainWindow.cpp
-    # src/ui/mainWindow.h
-    # src/ui/mainWindow.ui
+    src/ui/mainWindow.cpp
+    src/ui/mainWindow.h
+    src/ui/mainWindow.ui
 
     src/core/iCameraType.h
-    src/core/qtCamera.h
-    src/core/qtCamera.cpp
+    # src/core/qtCamera.h
+    # src/core/qtCamera.cpp
     src/core/openCVCamera.h
     src/core/openCVCamera.cpp
 

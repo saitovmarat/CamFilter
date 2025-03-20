@@ -1,4 +1,5 @@
 #include "openCVCamera.h"
+
 #include <QFile>
 #include <QTextStream>
 #include <QDebug>
@@ -50,32 +51,36 @@ void OpenCVCamera::selectCam(int index)
 void OpenCVCamera::processFrames()
 {
     cv::Mat frame;
+    if (!camera.isOpened()) {
+        qDebug() << "Не удалось открыть камеру";
+        return;
+    }
+
     while (isRunning) {
         camera >> frame;
         if (frame.empty()) {
             qDebug() << "Получен пустой кадр";
             continue;
         }
+
         cv::Mat processedFrame = getFilteredFrame(frame);
         if (processedFrame.empty()) {
             qDebug() << "Обработанный кадр пустой";
             continue;
         }
-        QImage frameImg = MatToQImage(processedFrame);
-        if (frameImg.isNull()) {
+
+        lastFrame = MatToQImage(processedFrame);
+        if (lastFrame.isNull()) {
             qDebug() << "Преобразованный кадр пустой";
             continue;
         }
 
         {
             std::lock_guard<std::mutex> lock(framesMutex);
-            frameImgsVector.push_back(frameImg);
+            emit frameReady(lastFrame);
         }
 
-        if (frameImgsVector.empty()) {
-            qDebug() << "frameImgsVector is empty!";
-        }
-        emit frameReady(frameImgsVector.back());
+        qDebug() << "Кадр обработан и сигнал испущен";
     }
 }
 

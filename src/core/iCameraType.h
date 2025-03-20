@@ -24,7 +24,6 @@ public:
     virtual void setFilter(FilterType filter) = 0;
 
     FilterType currentFilter;
-    std::vector<QImage> frameImgsVector;
 
     FilterType getFilterFromSettings() {
         QString settingsPath = "../../settings.ini";
@@ -56,20 +55,15 @@ public:
             return QImage();
         }
 
-        qDebug() << "Тип матрицы:" << mat.type() << ", Размеры:" << mat.cols << "x" << mat.rows;
-
         if (mat.type() == CV_8UC1) {
-            qDebug() << "CV_8UC1\n";
             return QImage(mat.data, mat.cols, mat.rows, mat.step[0], QImage::Format_Grayscale8);
         } else if (mat.type() == CV_8UC3) {
             cv::Mat rgb;
             cv::cvtColor(mat, rgb, cv::COLOR_BGR2RGB);
-            qDebug() << "CV_8UC3\n";
             return QImage(rgb.data, rgb.cols, rgb.rows, rgb.step[0], QImage::Format_RGB888);
         } else if (mat.type() == CV_8UC4) {
             cv::Mat rgba;
             cv::cvtColor(mat, rgba, cv::COLOR_BGRA2RGBA);
-            qDebug() << "CV_8UC4\n";
             return QImage(rgba.data, rgba.cols, rgba.rows, rgba.step[0], QImage::Format_RGBA8888);
         }
 

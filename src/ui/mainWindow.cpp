@@ -63,9 +63,8 @@ void MainWindow::applyNoFilter()
     camera->setFilter(NoFilter);
 }
 
-void MainWindow::updateFrame()
+void MainWindow::updateFrame(const QImage& frame)
 {
-    QImage frame = camera->getCurrentFrame();
     if (!frame.isNull()) {
         ui->cameraLabel->setPixmap(QPixmap::fromImage(frame));
         qDebug() << "Кадр обновлен";

@@ -14,7 +14,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    explicit MainWindow(ICameraType* camera, QWidget *parent = nullptr);
+    explicit MainWindow(ICameraType* camera, QWidget* parent = nullptr);
     ~MainWindow();
 
 private slots:
@@ -23,7 +23,7 @@ private slots:
     void applyBilateralFilter();
     void applyGaussFilter();
     void applyNoFilter();
-    void updateFrame();
+    void updateFrame(const QImage& frame);
 
 private:
     Ui::MainWindow* ui;
