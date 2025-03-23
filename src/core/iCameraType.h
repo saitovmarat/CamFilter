@@ -38,15 +38,6 @@ public:
         return filter;
     }
 
-    void saveFrame(const cv::Mat& frame)
-    {
-        static int frameCounter = 1;
-        std::string folderPath = "../../frames/";
-        std::string fileName = folderPath + "frame_" + std::to_string(frameCounter++) + ".jpg";
-        cv::imwrite(fileName, frame);
-    }
-
-
     QImage MatToQImage(const cv::Mat& mat)
     {
         if (mat.empty()) {
