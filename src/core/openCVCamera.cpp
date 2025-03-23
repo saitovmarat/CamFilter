@@ -9,42 +9,42 @@
 
 OpenCVCamera::OpenCVCamera(QObject* parent)
     : ICameraType(parent)
-    , isRunning(false)
+    , stopProcessing(true)
 {
     currentFilter = getFilterFromSettings();
 }
 
-void OpenCVCamera::stop() {
-    if (isRunning) {
-        isRunning = false;
+OpenCVCamera::~OpenCVCamera()
+{
+    if (!stopProcessing) {
+        stopProcessing = true;
         if (processingThread.joinable()) {
             processingThread.join();
         }
     }
-}
-
-OpenCVCamera::~OpenCVCamera()
-{
-    stop();
     camera.release();
 }
 
 void OpenCVCamera::selectCam(int index)
 {
-    stop();
     if (camera.isOpened()) {
         camera.release();
     }
     if(index == 0){
-        stop();
+        if (!stopProcessing) {
+            stopProcessing = true;
+            if (processingThread.joinable()) {
+                processingThread.join();
+            }
+        }
         return;
     }
 
     if (camera.open(index-1, cv::CAP_DSHOW)) {
-        isRunning = true;
+        stopProcessing = false;
         processingThread = std::thread(&OpenCVCamera::processFrames, this);
     } else {
-        qDebug() << "Не удалось открыть камеру с индексом:" << index;
+        qWarning() << "OpenCVCamera::selectCam - Falied to open camera with index " << index;
     }
 }
 
@@ -52,35 +52,35 @@ void OpenCVCamera::processFrames()
 {
     cv::Mat frame;
     if (!camera.isOpened()) {
-        qDebug() << "Не удалось открыть камеру";
+        qWarning() << "OpenCVCamera::processFrames - Falied to open the camera!";
         return;
     }
 
-    while (isRunning) {
+    while (!stopProcessing) {
         camera >> frame;
         if (frame.empty()) {
-            qDebug() << "Получен пустой кадр";
+            qWarning() << "OpenCVCamera::processFrames - Got an empty frame!";
             continue;
         }
 
         cv::Mat processedFrame = getFilteredFrame(frame);
         if (processedFrame.empty()) {
-            qDebug() << "Обработанный кадр пустой";
+            qWarning() << "OpenCVCamera::processFrames - Failed to get filtered frame!";
             continue;
         }
 
-        lastFrame = MatToQImage(processedFrame);
-        if (lastFrame.isNull()) {
-            qDebug() << "Преобразованный кадр пустой";
+        QImage convertedFrame = MatToQImage(processedFrame);
+        if (convertedFrame.isNull()) {
+            qWarning() << "OpenCVCamera::processFrames - Failed to get converted frame! processedFrame.type:" << processedFrame.type();
             continue;
         }
 
-        {
-            std::lock_guard<std::mutex> lock(framesMutex);
+        QImage lastFrame = convertedFrame;
+        if (!lastFrame.isNull()) {
             emit frameReady(lastFrame);
+        } else {
+            qWarning() << "OpenCVCamera::processFrames - Failed to convert lastFrame to RGB_32! No signal was emitted!";
         }
-
-        qDebug() << "Кадр обработан и сигнал испущен";
     }
 }
 
@@ -88,10 +88,10 @@ cv::Mat OpenCVCamera::getFilteredFrame(const cv::Mat& frame)
 {
     cv::Mat processedFrame;
     switch (currentFilter) {
-    case Bilateral:
+    case FilterType::Bilateral:
         cv::bilateralFilter(frame, processedFrame, 9, 75, 75);
         break;
-    case Gauss:
+    case FilterType::Gauss:
         cv::GaussianBlur(frame, processedFrame, cv::Size(15, 15), 0);
         break;
     default:
@@ -100,14 +100,6 @@ cv::Mat OpenCVCamera::getFilteredFrame(const cv::Mat& frame)
     }
 
     return processedFrame;
-}
-
-QImage OpenCVCamera::getCurrentFrame()
-{
-    std::lock_guard<std::mutex> lock(framesMutex);
-    QImage lastFrame = frameImgsVector.back();
-    frameImgsVector.clear();
-    return lastFrame;
 }
 
 void OpenCVCamera::setFilter(FilterType filter)

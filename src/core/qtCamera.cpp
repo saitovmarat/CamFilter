@@ -1,13 +1,13 @@
-#include <QVideoWidget>
+#include "qtCamera.h"
+
 #include <QCamera>
-#include <QVideoSink>
 #include <QMediaCaptureSession>
+#include <QVideoWidget>
+#include <QVideoSink>
 #include <QMediaDevices>
 #include <QCoreApplication>
 #include <QDir>
 #include <QSettings>
-
-#include "qtCamera.h"
 
 QtCamera::QtCamera(QObject* parent)
     : ICameraType(parent)
@@ -20,14 +20,15 @@ QtCamera::QtCamera(QObject* parent)
     processingThread = std::thread(&QtCamera::processFrames, this);
 }
 
-QtCamera::~QtCamera() 
+QtCamera::~QtCamera()
 {
-    stopProcessing = true;
-    frameAvailable.notify_all();
-    if (processingThread.joinable()) {
-        processingThread.join();
+    if (!stopProcessing) {
+        stopProcessing = true;
+        frameAvailable.notify_all();
+        if (processingThread.joinable()) {
+            processingThread.join();
+        }
     }
-
     delete camera;
     delete mediaCaptureSession;
 }
@@ -36,6 +37,16 @@ void QtCamera::selectCam(int index)
 {
     if (camera->isActive()) {
         camera->stop();
+    }
+    if(index == 0){
+        if (!stopProcessing) {
+            stopProcessing = true;
+            frameAvailable.notify_all();
+            if (processingThread.joinable()) {
+                processingThread.join();
+            }
+        }
+        return;
     }
 
     QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
@@ -47,19 +58,13 @@ void QtCamera::selectCam(int index)
     sink = mediaCaptureSession->videoSink();
 
     connect(sink, &QVideoSink::videoFrameChanged, this, &QtCamera::onFrameChanged);
-
     camera->start();
-}
-
-void QtCamera::start()
-{
-    selectCam(1);
 }
 
 void QtCamera::onFrameChanged(const QVideoFrame& frame)
 {
     if (!frame.isValid()) {
-        qWarning() << "Failed to get a QVideoFrame!";
+        qWarning() << "QtCamera::onFrameChanged - Failed to get a QVideoFrame!";
         return;
     }
 
@@ -79,7 +84,6 @@ void QtCamera::processFrames()
         {
             std::unique_lock<std::mutex> lock(queueMutex);
             frameAvailable.wait(lock, [this] { return !frameQueue.empty() || stopProcessing; });
-
             if (stopProcessing && frameQueue.empty()) {
                 break;
             }
@@ -91,7 +95,24 @@ void QtCamera::processFrames()
         }
 
         cv::Mat processedFrame = getFilteredFrame(frame);
-        saveFrame(processedFrame);
+        if (processedFrame.empty()) {
+            qWarning() << "QtCamera::processFrames - Failed to get filtered frame!";
+            continue;
+        }
+
+        QImage convertedFrame = MatToQImage(processedFrame);
+        if (convertedFrame.isNull()) {
+            qWarning() << "QtCamera::processFrames - Failed to get converted frame! processedFrame.type: " << processedFrame.type();
+            continue;
+        }
+
+        QImage lastFrame = convertedFrame;
+        if (!lastFrame.isNull()) {
+            emit frameReady(lastFrame);
+        } else {
+            qWarning() << "QtCamera::processFrames - Failed to convert lastFrame to RGB_32! No signal was emitted!";
+        }
+
     }
 }
 
@@ -99,7 +120,7 @@ cv::Mat QtCamera::getFilteredFrame(const QVideoFrame &frame)
 { 
     QImage frameImg = frame.toImage();
     if (frameImg.isNull()) {
-        qWarning() << "Failed to convert QVideoFrame to QImage!";
+        qWarning() << "QtCamera::getFilteredFrame - Failed to convert QVideoFrame to QImage!";
         return cv::Mat();
     }
 
@@ -113,18 +134,16 @@ cv::Mat QtCamera::getFilteredFrame(const QVideoFrame &frame)
                       const_cast<uchar*>(frameImg.constBits()),
                       static_cast<size_t>(frameImg.bytesPerLine()));
     } else {
-        qWarning() << "Unsupported image format for OpenCV processing";
+        qWarning() << "QtCamera::getFilteredFrame - Got unsupported image format for OpenCV processing";
         return mat;
     }
 
-    if (currentFilter == NoFilter) return mat;
-
     cv::Mat processedFrame;
     switch (currentFilter) {
-        case Bilateral:
+        case FilterType::Bilateral:
             cv::bilateralFilter(mat, processedFrame, 9, 75, 75);
             break;
-        case Gauss:
+        case FilterType::Gauss:
             cv::GaussianBlur(mat, processedFrame, cv::Size(15, 15), 0);
             break;
         default:
@@ -134,3 +153,10 @@ cv::Mat QtCamera::getFilteredFrame(const QVideoFrame &frame)
     cv::cvtColor(processedFrame, processedFrame, cv::COLOR_RGB2BGR);
     return processedFrame;
 }
+
+void QtCamera::setFilter(FilterType filter)
+{
+    std::lock_guard<std::mutex> lock(queueMutex);
+    currentFilter = filter;
+}
+

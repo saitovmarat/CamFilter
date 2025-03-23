@@ -5,13 +5,14 @@
 #include <QMediaDevices>
 #include <QSettings>
 #include <QThread>
-#include <QTimer>
+#include <QMetaObject>
 
 MainWindow::MainWindow(ICameraType* cameraType, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , camera(cameraType)
-    , currentFilter(NoFilter)
+    , currentFilter(FilterType::NoFilter)
+    , isRunning(true)
 {
     ui->setupUi(this);
     setWindowTitle("Camera Filter");
@@ -24,12 +25,19 @@ MainWindow::MainWindow(ICameraType* cameraType, QWidget *parent)
     connect(ui->GaussFilterButton, &QPushButton::clicked, this, &MainWindow::applyGaussFilter);
     connect(ui->NoFilterButton, &QPushButton::clicked, this, &MainWindow::applyNoFilter);
 
-    connect(camera, &ICameraType::frameReady, this, &MainWindow::updateFrame);
+    connect(camera, &ICameraType::frameReady, this, &MainWindow::onFrameReady, Qt::QueuedConnection);
+
+    processingThread = std::thread(&MainWindow::processFrames, this);
 }
 
 MainWindow::~MainWindow()
 {
-    camera->stop();
+    isRunning = false;
+    frameCondition.wakeOne();
+    if (processingThread.joinable()) {
+        processingThread.join();
+    }
+
     delete camera;
     delete ui;
 }
@@ -50,25 +58,52 @@ void MainWindow::selectCam(int index)
 
 void MainWindow::applyBilateralFilter()
 {
-    camera->setFilter(Bilateral);
+    camera->setFilter(FilterType::Bilateral);
 }
 
 void MainWindow::applyGaussFilter()
 {
-    camera->setFilter(Gauss);
+    camera->setFilter(FilterType::Gauss);
 }
 
 void MainWindow::applyNoFilter()
 {
-    camera->setFilter(NoFilter);
+    camera->setFilter(FilterType::NoFilter);
 }
 
-void MainWindow::updateFrame(const QImage& frame)
+void MainWindow::onFrameReady(const QImage& frame)
 {
+    QMutexLocker locker(&framesMutex);
     if (!frame.isNull()) {
-        ui->cameraLabel->setPixmap(QPixmap::fromImage(frame));
-        qDebug() << "Кадр обновлен";
-    } else {
-        qDebug() << "Получен пустой кадр в updateFrame";
+        frames.push_back(frame);
+        frameCondition.wakeOne();
+    }
+    else {
+        qWarning() << "MainWindow::onFrameReady - Got empty frame!";
+    }
+}
+
+void MainWindow::processFrames()
+{
+    while (isRunning) {
+        QImage frame;
+        {
+            QMutexLocker locker(&framesMutex);
+            frameCondition.wait(&framesMutex);
+            if (!frames.empty()) {
+                frame = frames.back();
+                frames.clear();
+            }
+        }
+        if (!frame.isNull()) {
+            QMetaObject::invokeMethod(this, [this, frame]() {
+                ui->cameraLabel->setPixmap(QPixmap::fromImage(frame));
+                ui->cameraLabel->setScaledContents(true);
+                ui->cameraLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+            });
+        }
+        else {
+            qWarning() << "MainWindow::processFrames - Got an empty frame!";
+        }
     }
 }
