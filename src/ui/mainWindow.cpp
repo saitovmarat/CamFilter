@@ -4,20 +4,19 @@
 #include <QCameraDevice>
 #include <QMediaDevices>
 #include <QSettings>
+#include <QThread>
+#include <QMetaObject>
 
 MainWindow::MainWindow(ICameraType* cameraType, QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , camera(cameraType)
-    , currentFilter(NoFilter)
-    , cameraWidget(camera->getWidget())
+    , currentFilter(FilterType::NoFilter)
+    , isRunning(true)
 {
     ui->setupUi(this);
     setWindowTitle("Camera Filter");
     setWindowIcon(QIcon(":/camera_icon.png"));
-
-    ui->verticalLayout->addWidget(cameraWidget);
-    setFilterFromSettings();
 
     addCamsToCB();
     connect(ui->camerasComboBox, &QComboBox::currentIndexChanged, this, &MainWindow::selectCam);
@@ -25,12 +24,21 @@ MainWindow::MainWindow(ICameraType* cameraType, QWidget *parent)
     connect(ui->BilateralFilterButton, &QPushButton::clicked, this, &MainWindow::applyBilateralFilter);
     connect(ui->GaussFilterButton, &QPushButton::clicked, this, &MainWindow::applyGaussFilter);
     connect(ui->NoFilterButton, &QPushButton::clicked, this, &MainWindow::applyNoFilter);
+
+    connect(camera, &ICameraType::frameReady, this, &MainWindow::onFrameReady, Qt::QueuedConnection);
+
+    processingThread = std::thread(&MainWindow::processFrames, this);
 }
 
 MainWindow::~MainWindow()
 {
+    isRunning = false;
+    frameCondition.wakeOne();
+    if (processingThread.joinable()) {
+        processingThread.join();
+    }
+
     delete camera;
-    delete cameraWidget;
     delete ui;
 }
 
@@ -50,32 +58,52 @@ void MainWindow::selectCam(int index)
 
 void MainWindow::applyBilateralFilter()
 {
-    camera->currentFilter = Bilateral;
+    camera->setFilter(FilterType::Bilateral);
 }
 
 void MainWindow::applyGaussFilter()
 {
-    camera->currentFilter = Gauss;
+    camera->setFilter(FilterType::Gauss);
 }
 
 void MainWindow::applyNoFilter()
 {
-    camera->currentFilter = NoFilter;
+    camera->setFilter(FilterType::NoFilter);
 }
 
-void MainWindow::setFilterFromSettings()
+void MainWindow::onFrameReady(const QImage& frame)
 {
-    QString settingsPath = QCoreApplication::applicationDirPath() + "/settings.ini";
-    QSettings settings(settingsPath, QSettings::IniFormat);
-    QString defaultFilter = settings.value("Settings/DefaultFilter", "NoFilter").toString();
-
-    if (defaultFilter == "Bilateral") {
-        applyBilateralFilter();
-    }
-    else if (defaultFilter == "Gauss") {
-        applyGaussFilter();
+    QMutexLocker locker(&framesMutex);
+    if (!frame.isNull()) {
+        frames.push_back(frame);
+        frameCondition.wakeOne();
     }
     else {
-        applyNoFilter();
+        qWarning() << "MainWindow::onFrameReady - Got empty frame!";
+    }
+}
+
+void MainWindow::processFrames()
+{
+    while (isRunning) {
+        QImage frame;
+        {
+            QMutexLocker locker(&framesMutex);
+            frameCondition.wait(&framesMutex);
+            if (!frames.empty()) {
+                frame = frames.back();
+                frames.clear();
+            }
+        }
+        if (!frame.isNull()) {
+            QMetaObject::invokeMethod(this, [this, frame]() {
+                ui->cameraLabel->setPixmap(QPixmap::fromImage(frame));
+                ui->cameraLabel->setScaledContents(true);
+                ui->cameraLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+            });
+        }
+        else {
+            qWarning() << "MainWindow::processFrames - Got an empty frame!";
+        }
     }
 }

@@ -9,9 +9,10 @@ using CameraType = QtCamera;
 #include "openCVCamera.h"
 using CameraType = OpenCVCamera;
 
+
 #endif
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     QApplication a(argc, argv);
     MainWindow w(new CameraType());

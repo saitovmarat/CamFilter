@@ -1,7 +1,10 @@
 #pragma once
 
 #include "iCameraType.h"
+
 #include <QMainWindow>
+#include <QWaitCondition>
+#include <QMutex>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -14,23 +17,27 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    MainWindow(ICameraType* camera, QWidget *parent = nullptr);
+    explicit MainWindow(ICameraType* camera, QWidget* parent = nullptr);
     ~MainWindow();
 
 private slots:
+    void onFrameReady(const QImage& frame);
+
+private:
     void addCamsToCB();
     void selectCam(int index);
-
     void applyBilateralFilter();
     void applyGaussFilter();
     void applyNoFilter();
+    void processFrames();
 
-private:
     Ui::MainWindow* ui;
     ICameraType* camera;
-
-    void setFilterFromSettings();
     FilterType currentFilter;
 
-    QWidget* cameraWidget;
+    std::vector<QImage> frames;
+    std::atomic<bool> isRunning;
+    QMutex framesMutex;
+    std::thread processingThread;
+    QWaitCondition frameCondition;
 };

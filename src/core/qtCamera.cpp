@@ -1,57 +1,70 @@
-#include <QVideoWidget>
-#include <QCamera>
-#include <QVideoSink>
-#include <QMediaCaptureSession>
-#include <QMediaDevices>
-#include <opencv2/opencv.hpp>
-
 #include "qtCamera.h"
+
+#include <QCamera>
+#include <QMediaCaptureSession>
+#include <QVideoWidget>
+#include <QVideoSink>
+#include <QMediaDevices>
+#include <QCoreApplication>
+#include <QDir>
+#include <QSettings>
 
 QtCamera::QtCamera(QObject* parent)
     : ICameraType(parent)
-    , currentCam(new QCamera())
+    , camera(new QCamera())
     , mediaCaptureSession(new QMediaCaptureSession())
     , stopProcessing(false)
     , widget(new QVideoWidget())
 {
+    currentFilter = getFilterFromSettings();
     processingThread = std::thread(&QtCamera::processFrames, this);
 }
 
-QtCamera::~QtCamera() 
+QtCamera::~QtCamera()
 {
-    stopProcessing = true;
-    frameAvailable.notify_all();
-    if (processingThread.joinable()) {
-        processingThread.join();
+    if (!stopProcessing) {
+        stopProcessing = true;
+        frameAvailable.notify_all();
+        if (processingThread.joinable()) {
+            processingThread.join();
+        }
     }
-
-    delete currentCam;
+    delete camera;
     delete mediaCaptureSession;
 }
 
 void QtCamera::selectCam(int index)
 {
-    if (currentCam->isActive()) {
-        currentCam->stop();
+    if (camera->isActive()) {
+        camera->stop();
+    }
+    if(index == 0){
+        if (!stopProcessing) {
+            stopProcessing = true;
+            frameAvailable.notify_all();
+            if (processingThread.joinable()) {
+                processingThread.join();
+            }
+        }
+        return;
     }
 
     QList<QCameraDevice> cameras = QMediaDevices::videoInputs();
-    const QCameraDevice& camera = cameras.at(index - 1);
+    const QCameraDevice& selectedCam = cameras.at(index - 1);
 
-    currentCam->setCameraDevice(camera);
-    mediaCaptureSession->setCamera(currentCam);
+    camera->setCameraDevice(selectedCam);
+    mediaCaptureSession->setCamera(camera);
     mediaCaptureSession->setVideoOutput(widget);
     sink = mediaCaptureSession->videoSink();
 
     connect(sink, &QVideoSink::videoFrameChanged, this, &QtCamera::onFrameChanged);
-
-    currentCam->start();
+    camera->start();
 }
 
 void QtCamera::onFrameChanged(const QVideoFrame& frame)
 {
     if (!frame.isValid()) {
-        qWarning() << "Failed to get a QVideoFrame!";
+        qWarning() << "QtCamera::onFrameChanged - Failed to get a QVideoFrame!";
         return;
     }
 
@@ -71,7 +84,6 @@ void QtCamera::processFrames()
         {
             std::unique_lock<std::mutex> lock(queueMutex);
             frameAvailable.wait(lock, [this] { return !frameQueue.empty() || stopProcessing; });
-
             if (stopProcessing && frameQueue.empty()) {
                 break;
             }
@@ -82,66 +94,69 @@ void QtCamera::processFrames()
             }
         }
 
-        QVideoFrame filteredFrame = applyFilter(frame);
-        QMetaObject::invokeMethod(sink, [this, filteredFrame]() {
-            sink->setVideoFrame(filteredFrame);
-        });
+        cv::Mat processedFrame = getFilteredFrame(frame);
+        if (processedFrame.empty()) {
+            qWarning() << "QtCamera::processFrames - Failed to get filtered frame!";
+            continue;
+        }
+
+        QImage convertedFrame = MatToQImage(processedFrame);
+        if (convertedFrame.isNull()) {
+            qWarning() << "QtCamera::processFrames - Failed to get converted frame! processedFrame.type: " << processedFrame.type();
+            continue;
+        }
+
+        QImage lastFrame = convertedFrame;
+        if (!lastFrame.isNull()) {
+            emit frameReady(lastFrame);
+        } else {
+            qWarning() << "QtCamera::processFrames - Failed to convert lastFrame to RGB_32! No signal was emitted!";
+        }
+
     }
 }
 
-QVideoFrame QtCamera::applyFilter(const QVideoFrame &frame)
-{
-    if (currentFilter == NoFilter) return frame;
-
+cv::Mat QtCamera::getFilteredFrame(const QVideoFrame &frame)
+{ 
     QImage frameImg = frame.toImage();
     if (frameImg.isNull()) {
-        qWarning() << "Failed to convert QVideoFrame to QImage!";
-        return frame;
+        qWarning() << "QtCamera::getFilteredFrame - Failed to convert QVideoFrame to QImage!";
+        return cv::Mat();
     }
 
     QImage::Format startingFormat = frameImg.format();
-    if (startingFormat == QImage::Format_RGBA8888 ||
-        startingFormat == QImage::Format_RGBA8888_Premultiplied) {
-        frameImg = frameImg.convertToFormat(QImage::Format_RGB888);
-    }
-
     cv::Mat mat;
-    if (frameImg.format() == QImage::Format_RGB888) {
+    if (startingFormat == QImage::Format_RGBA8888 ||
+        startingFormat == QImage::Format_RGBA8888_Premultiplied)
+    {
+        frameImg = frameImg.convertToFormat(QImage::Format_RGB888);
         mat = cv::Mat(frameImg.height(), frameImg.width(), CV_8UC3,
                       const_cast<uchar*>(frameImg.constBits()),
                       static_cast<size_t>(frameImg.bytesPerLine()));
     } else {
-        qWarning() << "Unsupported image format for OpenCV processing";
-        return frame;
-    }
-
-    if (mat.empty()) {
-        qWarning() << "cv::Mat is empty!";
-        return frame;
+        qWarning() << "QtCamera::getFilteredFrame - Got unsupported image format for OpenCV processing";
+        return mat;
     }
 
     cv::Mat processedFrame;
     switch (currentFilter) {
-        case Bilateral:
+        case FilterType::Bilateral:
             cv::bilateralFilter(mat, processedFrame, 9, 75, 75);
             break;
-        case Gauss:
+        case FilterType::Gauss:
             cv::GaussianBlur(mat, processedFrame, cv::Size(15, 15), 0);
             break;
         default:
             processedFrame = mat.clone();
             break;
     }
-
-    QImage filteredImg(processedFrame.data,
-                       processedFrame.cols,
-                       processedFrame.rows,
-                       static_cast<int>(processedFrame.step),
-                       QImage::Format_RGB888);
-
-    return QVideoFrame(filteredImg);
+    cv::cvtColor(processedFrame, processedFrame, cv::COLOR_RGB2BGR);
+    return processedFrame;
 }
 
-QWidget* QtCamera::getWidget() const {
-    return widget;
+void QtCamera::setFilter(FilterType filter)
+{
+    std::lock_guard<std::mutex> lock(queueMutex);
+    currentFilter = filter;
 }
+

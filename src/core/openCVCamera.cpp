@@ -1,25 +1,28 @@
 #include "openCVCamera.h"
 
-#include <QTimer>
-#include <QLabel>
+#include <QFile>
+#include <QTextStream>
+#include <QDebug>
+#include <QFileInfo>
+#include <QSettings>
+#include <QCoreApplication>
 
 OpenCVCamera::OpenCVCamera(QObject* parent)
     : ICameraType(parent)
-    , timer(new QTimer())
-    , widget(new QLabel())
+    , stopProcessing(true)
 {
-    widget->setSizePolicy(QSizePolicy::Expanding,
-                                QSizePolicy::Expanding);
-    widget->setAlignment(Qt::AlignCenter);
-    connect(timer, &QTimer::timeout, this, &OpenCVCamera::updateFrame);
-    timer->start(30);
+    currentFilter = getFilterFromSettings();
 }
 
-OpenCVCamera::~OpenCVCamera() 
+OpenCVCamera::~OpenCVCamera()
 {
+    if (!stopProcessing) {
+        stopProcessing = true;
+        if (processingThread.joinable()) {
+            processingThread.join();
+        }
+    }
     camera.release();
-    delete timer;
-    delete widget;
 }
 
 void OpenCVCamera::selectCam(int index)
@@ -27,27 +30,68 @@ void OpenCVCamera::selectCam(int index)
     if (camera.isOpened()) {
         camera.release();
     }
+    if(index == 0){
+        if (!stopProcessing) {
+            stopProcessing = true;
+            if (processingThread.joinable()) {
+                processingThread.join();
+            }
+        }
+        return;
+    }
 
-    if(index == 0) return;
-
-    camera.open(index-1, cv::CAP_DSHOW);
-
+    if (camera.open(index-1, cv::CAP_DSHOW)) {
+        stopProcessing = false;
+        processingThread = std::thread(&OpenCVCamera::processFrames, this);
+    } else {
+        qWarning() << "OpenCVCamera::selectCam - Falied to open camera with index " << index;
+    }
 }
 
-void OpenCVCamera::updateFrame()
+void OpenCVCamera::processFrames()
 {
     cv::Mat frame;
-    camera >> frame;
-    if (frame.empty()) return;
+    if (!camera.isOpened()) {
+        qWarning() << "OpenCVCamera::processFrames - Falied to open the camera!";
+        return;
+    }
 
-    cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
+    while (!stopProcessing) {
+        camera >> frame;
+        if (frame.empty()) {
+            qWarning() << "OpenCVCamera::processFrames - Got an empty frame!";
+            continue;
+        }
 
+        cv::Mat processedFrame = getFilteredFrame(frame);
+        if (processedFrame.empty()) {
+            qWarning() << "OpenCVCamera::processFrames - Failed to get filtered frame!";
+            continue;
+        }
+
+        QImage convertedFrame = MatToQImage(processedFrame);
+        if (convertedFrame.isNull()) {
+            qWarning() << "OpenCVCamera::processFrames - Failed to get converted frame! processedFrame.type:" << processedFrame.type();
+            continue;
+        }
+
+        QImage lastFrame = convertedFrame;
+        if (!lastFrame.isNull()) {
+            emit frameReady(lastFrame);
+        } else {
+            qWarning() << "OpenCVCamera::processFrames - Failed to convert lastFrame to RGB_32! No signal was emitted!";
+        }
+    }
+}
+
+cv::Mat OpenCVCamera::getFilteredFrame(const cv::Mat& frame)
+{
     cv::Mat processedFrame;
     switch (currentFilter) {
-    case Bilateral:
+    case FilterType::Bilateral:
         cv::bilateralFilter(frame, processedFrame, 9, 75, 75);
         break;
-    case Gauss:
+    case FilterType::Gauss:
         cv::GaussianBlur(frame, processedFrame, cv::Size(15, 15), 0);
         break;
     default:
@@ -55,21 +99,11 @@ void OpenCVCamera::updateFrame()
         break;
     }
 
-    QImage image(processedFrame.data,
-                 processedFrame.cols,
-                 processedFrame.rows,
-                 static_cast<int>(processedFrame.step),
-                 QImage::Format_RGB888);
-
-    // QSize labelSize = cameraWidget->size(); 
-    // QImage scaledImage = image.scaled(labelSize, 
-    //                                   Qt::KeepAspectRatio, 
-    //                                   Qt::SmoothTransformation);
-
-    widget->setPixmap(QPixmap::fromImage(image));
+    return processedFrame;
 }
 
-QWidget* OpenCVCamera::getWidget() const {
-    return widget;
+void OpenCVCamera::setFilter(FilterType filter)
+{
+    std::lock_guard<std::mutex> lock(framesMutex);
+    currentFilter = filter;
 }
-

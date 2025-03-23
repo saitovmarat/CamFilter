@@ -1,25 +1,27 @@
 #pragma once
 
-#include <opencv2/opencv.hpp>
 #include "iCameraType.h"
 
-class QTimer;
-class QLabel;
+#include <opencv2/opencv.hpp>
+#include <atomic>
+#include <thread>
 
 class OpenCVCamera : public ICameraType {
     Q_OBJECT
 
 public:
-  explicit OpenCVCamera(QObject* parent = nullptr);
-  ~OpenCVCamera() override;
+    explicit OpenCVCamera(QObject* parent = nullptr);
+    ~OpenCVCamera() override;
 
-  void selectCam(int index) override;
-  QWidget* getWidget() const override;
+    void selectCam(int index) override;
+    void setFilter(FilterType filter) override;
 
 private:
-  cv::VideoCapture camera;
-  QTimer* timer;
-  QLabel* widget;
+    void processFrames() override;
+    cv::Mat getFilteredFrame(const cv::Mat& frame);
 
-  void updateFrame();
+    cv::VideoCapture camera;
+    std::atomic<bool> stopProcessing;
+    std::mutex framesMutex;
+    std::thread processingThread;
 };

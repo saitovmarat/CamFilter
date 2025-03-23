@@ -1,12 +1,14 @@
 #pragma once
 
-#include <QVideoFrame>
+#include "iCameraType.h"
+
+#include <opencv2/opencv.hpp>
 #include <queue>
+#include <QVideoFrame>
 #include <mutex>
 #include <condition_variable>
 #include <atomic>
 #include <thread>
-#include "iCameraType.h"
 
 class QVideoWidget;
 class QCamera;
@@ -21,15 +23,15 @@ public:
     ~QtCamera() override;
 
     void selectCam(int index) override;
-    QWidget* getWidget() const override;
+    void setFilter(FilterType filter) override;
 
 private:
+    void processFrames() override;
     void onFrameChanged(const QVideoFrame& frame);
-    void processFrames();
-    QVideoFrame applyFilter(const QVideoFrame &frame);
+    cv::Mat getFilteredFrame(const QVideoFrame &frame);
 
     QVideoWidget* widget;
-    QCamera* currentCam;
+    QCamera* camera;
     QVideoSink* sink;
     QMediaCaptureSession* mediaCaptureSession;
 
