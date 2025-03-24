@@ -16,27 +16,17 @@ OpenCVCamera::OpenCVCamera(QObject* parent)
 
 OpenCVCamera::~OpenCVCamera()
 {
-    if (!stopProcessing) {
-        stopProcessing = true;
-        if (processingThread.joinable()) {
-            processingThread.join();
-        }
-    }
+    stopCamera();
     camera.release();
 }
 
 void OpenCVCamera::selectCam(int index)
 {
+    stopCamera();
     if (camera.isOpened()) {
         camera.release();
     }
     if(index == 0){
-        if (!stopProcessing) {
-            stopProcessing = true;
-            if (processingThread.joinable()) {
-                processingThread.join();
-            }
-        }
         return;
     }
 
@@ -76,11 +66,11 @@ void OpenCVCamera::processFrames()
         }
 
         QImage lastFrame = convertedFrame;
-        if (!lastFrame.isNull()) {
-            emit frameReady(lastFrame);
-        } else {
+        if (lastFrame.isNull()) {
             qWarning() << "OpenCVCamera::processFrames - Failed to convert lastFrame to RGB_32! No signal was emitted!";
         }
+
+        emit frameReady(lastFrame);
     }
 }
 
@@ -106,4 +96,13 @@ void OpenCVCamera::setFilter(FilterType filter)
 {
     std::lock_guard<std::mutex> lock(framesMutex);
     currentFilter = filter;
+}
+
+void OpenCVCamera::stopCamera() {
+    if (!stopProcessing) {
+        stopProcessing = true;
+        if (processingThread.joinable()) {
+            processingThread.join();
+        }
+    }
 }

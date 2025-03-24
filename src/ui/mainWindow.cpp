@@ -96,6 +96,7 @@ void MainWindow::processFrames()
             }
         }
         if (!frame.isNull()) {
+            frame = frame.mirrored(true, false);
             QMetaObject::invokeMethod(this, [this, frame]() {
                 ui->cameraLabel->setPixmap(QPixmap::fromImage(frame));
                 ui->cameraLabel->setScaledContents(true);

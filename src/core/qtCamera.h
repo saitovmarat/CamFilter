@@ -29,6 +29,7 @@ private:
     void processFrames() override;
     void onFrameChanged(const QVideoFrame& frame);
     cv::Mat getFilteredFrame(const QVideoFrame &frame);
+    void stopCamera();
 
     QVideoWidget* widget;
     QCamera* camera;

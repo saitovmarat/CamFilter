@@ -22,13 +22,7 @@ QtCamera::QtCamera(QObject* parent)
 
 QtCamera::~QtCamera()
 {
-    if (!stopProcessing) {
-        stopProcessing = true;
-        frameAvailable.notify_all();
-        if (processingThread.joinable()) {
-            processingThread.join();
-        }
-    }
+    stopCamera();
     delete camera;
     delete mediaCaptureSession;
 }
@@ -39,13 +33,7 @@ void QtCamera::selectCam(int index)
         camera->stop();
     }
     if(index == 0){
-        if (!stopProcessing) {
-            stopProcessing = true;
-            frameAvailable.notify_all();
-            if (processingThread.joinable()) {
-                processingThread.join();
-            }
-        }
+        stopCamera();
         return;
     }
 
@@ -158,5 +146,16 @@ void QtCamera::setFilter(FilterType filter)
 {
     std::lock_guard<std::mutex> lock(queueMutex);
     currentFilter = filter;
+}
+
+void QtCamera::stopCamera()
+{
+    if (!stopProcessing) {
+        stopProcessing = true;
+        frameAvailable.notify_all();
+        if (processingThread.joinable()) {
+            processingThread.join();
+        }
+    }
 }
 

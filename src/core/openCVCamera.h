@@ -19,6 +19,7 @@ public:
 private:
     void processFrames() override;
     cv::Mat getFilteredFrame(const cv::Mat& frame);
+    void stopCamera();
 
     cv::VideoCapture camera;
     std::atomic<bool> stopProcessing;
