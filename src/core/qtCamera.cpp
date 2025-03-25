@@ -33,7 +33,6 @@ void QtCamera::selectCam(int index)
         camera->stop();
     }
     if(index == 0){
-        // stopCamera();
         return;
     }
 
