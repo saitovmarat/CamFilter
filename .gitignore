@@ -41,3 +41,7 @@ CMakeSettings.json
 cmake_install.cmake
 Makefile
 frames/
+
+
+# Исключение файлов виртуального окружения
+face_recognition_service/*venv
