@@ -6,6 +6,12 @@
 #include <QSettings>
 #include <QThread>
 #include <QMetaObject>
+#include <opencv2/opencv.hpp>
+#include <QBuffer>
+#include <QFile>
+#include <QHttpMultiPart>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 
 MainWindow::MainWindow(ICameraType* cameraType, QWidget *parent)
     : QMainWindow(parent)
@@ -96,6 +102,7 @@ void MainWindow::processFrames()
             }
         }
         if (!frame.isNull()) {
+            // fetchImageFromServer(frame);
             frame = frame.mirrored(true, false);
             QMetaObject::invokeMethod(this, [this, frame]() {
                 ui->cameraLabel->setPixmap(QPixmap::fromImage(frame));
@@ -108,3 +115,49 @@ void MainWindow::processFrames()
         }
     }
 }
+
+void MainWindow::fetchImageFromServer(const QImage& frame)
+{
+    QNetworkAccessManager* manager = new QNetworkAccessManager();
+    connect(manager, &QNetworkAccessManager::finished, this, &MainWindow::onImageReceived);
+
+    QNetworkRequest request(QUrl("http://127.0.0.1:5000/upload"));
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
+
+    QByteArray imageData;
+    QBuffer buffer(&imageData);
+    buffer.open(QIODevice::WriteOnly);
+    frame.save(&buffer, "JPEG");
+    qDebug() << "Sending POST request with data size:" << imageData.size();
+
+    manager->post(request, imageData);
+}
+
+
+void MainWindow::onImageReceived(QNetworkReply* reply)
+{
+    qDebug() << "Entered - MainWindow::onImageReceived";
+    if (reply->error() == QNetworkReply::NoError) {
+        QByteArray imageData = reply->readAll();
+
+        QImage img = QImage::fromData(imageData);
+        if (img.isNull()) {
+            qWarning() << "MainWindow::onImageReceived - Failed to convert QByteArray to QImage";
+            return;
+        }
+
+        img = img.mirrored(true, false);
+        QMetaObject::invokeMethod(this, [this, img]() {
+            ui->cameraLabel->setPixmap(QPixmap::fromImage(img));
+            ui->cameraLabel->setScaledContents(true);
+            ui->cameraLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+        });
+    } else {
+        qWarning() << "MainWindow::onImageReceived - Error fetching image:" << reply->errorString();
+    }
+
+    reply->deleteLater();
+}
+
+
+

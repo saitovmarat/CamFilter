@@ -21,7 +21,6 @@ else()
     message(FATAL_ERROR "Unsupported architecture: ${CMAKE_SYSTEM_PROCESSOR}")
 endif()
 
-
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(BUILD_TYPE_FOLDER "debug")
     set(BUILD_TYPE_POSTFIX "d")
@@ -69,10 +68,13 @@ set(PROJECT_SOURCES
     src/core/openCVCamera.cpp
 
     main.cpp
+
+    face_recognition_service/app.py
 )
 
 include_directories(src/ui)
 include_directories(src/core)
+include_directories(face_recognition_service)
 
 qt_add_resources(RESOURCES resources/resources.qrc)
 
@@ -89,6 +91,8 @@ else()
     )
 endif()
 
+target_include_directories(CamFilter PRIVATE
+    ${OpenCV_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 target_link_libraries(CamFilter PRIVATE
     Qt${QT_VERSION_MAJOR}::Core
     Qt${QT_VERSION_MAJOR}::Widgets

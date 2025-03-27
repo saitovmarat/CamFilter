@@ -6,6 +6,8 @@
 #include <QWaitCondition>
 #include <QMutex>
 
+class QNetworkReply;
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
     class MainWindow;
@@ -22,6 +24,7 @@ public:
 
 private slots:
     void onFrameReady(const QImage& frame);
+    void onImageReceived(QNetworkReply* reply);
 
 private:
     void addCamsToCB();
@@ -30,6 +33,7 @@ private:
     void applyGaussFilter();
     void applyNoFilter();
     void processFrames();
+    void fetchImageFromServer(const QImage& frame);
 
     Ui::MainWindow* ui;
     ICameraType* camera;
