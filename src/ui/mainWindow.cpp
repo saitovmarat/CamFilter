@@ -19,6 +19,7 @@ MainWindow::MainWindow(ICameraType* cameraType, QWidget *parent)
     , camera(cameraType)
     , currentFilter(FilterType::NoFilter)
     , isRunning(true)
+    , manager(new QNetworkAccessManager(this))
 {
     ui->setupUi(this);
     setWindowTitle("Camera Filter");
@@ -32,6 +33,7 @@ MainWindow::MainWindow(ICameraType* cameraType, QWidget *parent)
     connect(ui->NoFilterButton, &QPushButton::clicked, this, &MainWindow::applyNoFilter);
 
     connect(camera, &ICameraType::frameReady, this, &MainWindow::onFrameReady, Qt::QueuedConnection);
+    connect(this, &MainWindow::sendFrameToServer, this, &MainWindow::fetchImageFromServer);
 
     processingThread = std::thread(&MainWindow::processFrames, this);
 }
@@ -102,13 +104,7 @@ void MainWindow::processFrames()
             }
         }
         if (!frame.isNull()) {
-            // fetchImageFromServer(frame);
-            frame = frame.mirrored(true, false);
-            QMetaObject::invokeMethod(this, [this, frame]() {
-                ui->cameraLabel->setPixmap(QPixmap::fromImage(frame));
-                ui->cameraLabel->setScaledContents(true);
-                ui->cameraLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
-            });
+            emit sendFrameToServer(frame);
         }
         else {
             qWarning() << "MainWindow::processFrames - Got an empty frame!";
@@ -116,48 +112,47 @@ void MainWindow::processFrames()
     }
 }
 
-void MainWindow::fetchImageFromServer(const QImage& frame)
-{
-    QNetworkAccessManager* manager = new QNetworkAccessManager();
-    connect(manager, &QNetworkAccessManager::finished, this, &MainWindow::onImageReceived);
+void MainWindow::fetchImageFromServer(const QImage &frame) {
+    QHttpMultiPart* multiPart = new QHttpMultiPart(QHttpMultiPart::FormDataType);
 
-    QNetworkRequest request(QUrl("http://127.0.0.1:5000/upload"));
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
+    QString imageFilePath = "image.jpg";
+    frame.save(imageFilePath);
 
-    QByteArray imageData;
-    QBuffer buffer(&imageData);
-    buffer.open(QIODevice::WriteOnly);
-    frame.save(&buffer, "JPEG");
-    qDebug() << "Sending POST request with data size:" << imageData.size();
-
-    manager->post(request, imageData);
-}
-
-
-void MainWindow::onImageReceived(QNetworkReply* reply)
-{
-    qDebug() << "Entered - MainWindow::onImageReceived";
-    if (reply->error() == QNetworkReply::NoError) {
-        QByteArray imageData = reply->readAll();
-
-        QImage img = QImage::fromData(imageData);
-        if (img.isNull()) {
-            qWarning() << "MainWindow::onImageReceived - Failed to convert QByteArray to QImage";
-            return;
-        }
-
-        img = img.mirrored(true, false);
-        QMetaObject::invokeMethod(this, [this, img]() {
-            ui->cameraLabel->setPixmap(QPixmap::fromImage(img));
-            ui->cameraLabel->setScaledContents(true);
-            ui->cameraLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
-        });
-    } else {
-        qWarning() << "MainWindow::onImageReceived - Error fetching image:" << reply->errorString();
+    QFile* file = new QFile(imageFilePath);
+    if (!file->open(QIODevice::ReadOnly)) {
+        qDebug() << "Не удалось открыть файл";
+        delete multiPart;
+        return;
     }
 
-    reply->deleteLater();
+    QHttpPart imagePart;
+    imagePart.setHeader(QNetworkRequest::ContentTypeHeader, "image/jpeg");
+    imagePart.setHeader(QNetworkRequest::ContentDispositionHeader, QVariant("form-data; name=\"file\"; filename=\"image.jpg\""));
+    imagePart.setBody(file->readAll());
+    multiPart->append(imagePart);
+
+    QUrl url("http://localhost:5000/upload");
+    QNetworkRequest request(url);
+
+    QNetworkReply *reply = manager->post(request, multiPart);
+    multiPart->setParent(reply);
+
+    QObject::connect(reply, &QNetworkReply::finished, this, [reply, file, this]() {
+        if (reply->error() == QNetworkReply::NoError) {
+            QByteArray responseData = reply->readAll();
+            QImage responseImage;
+            responseImage.loadFromData(responseData);
+
+            QMetaObject::invokeMethod(this, [this, responseImage]() {
+                ui->cameraLabel->setPixmap(QPixmap::fromImage(responseImage));
+                ui->cameraLabel->setScaledContents(true);
+                ui->cameraLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
+            });
+        } else {
+            qDebug() << "Ошибка:" << reply->errorString();
+        }
+        file->close();
+        reply->deleteLater();
+        file->deleteLater();
+    });
 }
-
-
-

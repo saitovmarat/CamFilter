@@ -7,6 +7,7 @@
 #include <QMutex>
 
 class QNetworkReply;
+class QNetworkAccessManager;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -22,9 +23,11 @@ public:
     explicit MainWindow(ICameraType* camera, QWidget* parent = nullptr);
     ~MainWindow();
 
+signals:
+    void sendFrameToServer(const QImage& frame);
+
 private slots:
     void onFrameReady(const QImage& frame);
-    void onImageReceived(QNetworkReply* reply);
 
 private:
     void addCamsToCB();
@@ -44,4 +47,6 @@ private:
     QMutex framesMutex;
     std::thread processingThread;
     QWaitCondition frameCondition;
+
+    QNetworkAccessManager* manager;
 };
