@@ -41,7 +41,7 @@ MainWindow::MainWindow(ICameraType* cameraType, QWidget *parent)
 MainWindow::~MainWindow()
 {
     isRunning = false;
-    frameCondition.wakeOne();
+    frameCondition.wakeAll();
     if (processingThread.joinable()) {
         processingThread.join();
     }
@@ -97,13 +97,20 @@ void MainWindow::processFrames()
         QImage frame;
         {
             QMutexLocker locker(&framesMutex);
-            frameCondition.wait(&framesMutex);
+            while (frames.empty() && isRunning) {
+                frameCondition.wait(&framesMutex);
+            }
+            if (!isRunning) {
+                break;
+            }
+
             if (!frames.empty()) {
                 frame = frames.back();
                 frames.clear();
             }
         }
         if (!frame.isNull()) {
+            frame = frame.mirrored(true, false);
             emit sendFrameToServer(frame);
         }
         else {
